@@ -1,8 +1,9 @@
-from flask import Flask, render_template
-from flask_login import LoginManager
+from flask import Flask, render_template, redirect, url_for
+from flask_login import LoginManager, current_user
 from config import Config
 from models import db, User
 from routes.auth import auth_bp
+from routes.admin import admin_bp
 
 def create_app():
     app = Flask(__name__)
@@ -19,6 +20,7 @@ def create_app():
         return User.query.get(int(user_id))
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(admin_bp)
 
     with app.app_context():
         db.create_all()
@@ -30,6 +32,9 @@ def create_app():
 
     @app.route('/')
     def index():
+        if current_user.is_authenticated:
+            if current_user.role == 'admin':
+                return redirect(url_for('admin.dashboard'))
         return render_template('base.html')
 
     return app

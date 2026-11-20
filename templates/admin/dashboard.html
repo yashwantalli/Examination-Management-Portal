@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">Admin Dashboard</h2>
+
+<!-- Pending Examiners -->
+<div class="card mb-4">
+    <div class="card-header bg-warning-subtle"><strong>Pending Examiner Approvals</strong></div>
+    <div class="card-body">
+        {% if pending_examiners %}
+            <ul class="list-group">
+            {% for ex in pending_examiners %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ ex.username }}
+                    <form method="POST" action="{{ url_for('admin.approve_examiner', user_id=ex.id) }}">
+                        <button class="btn btn-sm btn-success">Approve</button>
+                    </form>
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-muted mb-0">No pending examiners.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <!-- Add Course -->
+    <div class="col-md-5 mb-4">
+        <div class="card">
+            <div class="card-header"><strong>Create Course</strong></div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.create_course') }}">
+                    <div class="mb-2">
+                        <input type="text" name="code" class="form-control" placeholder="Course Code (e.g., CS301)" required>
+                    </div>
+                    <div class="mb-2">
+                        <input type="text" name="name" class="form-control" placeholder="Course Name" required>
+                    </div>
+                    <button class="btn btn-primary btn-sm">Add Course</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Exam -->
+    <div class="col-md-7 mb-4">
+        <div class="card">
+            <div class="card-header"><strong>Create Exam</strong></div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('admin.create_exam') }}">
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <select name="course_id" class="form-select" required>
+                                <option value="">Select Course...</option>
+                                {% for c in courses %}
+                                    <option value="{{ c.id }}">{{ c.code }} - {{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <input type="text" name="title" class="form-control" placeholder="Exam Title (e.g., Viva 1)" required>
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label small mb-0">Booking Window Start</label>
+                            <input type="datetime-local" name="booking_start" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small mb-0">Booking Window End</label>
+                            <input type="datetime-local" name="booking_end" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <select name="examiner_id" class="form-select">
+                            <option value="">Assign Examiner (Optional)...</option>
+                            {% for ex in approved_examiners %}
+                                <option value="{{ ex.id }}">{{ ex.username }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-sm">Create Exam</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Exams & Rubrics -->
+<div class="card">
+    <div class="card-header"><strong>Exams & Rubric Criteria</strong></div>
+    <div class="card-body">
+        {% for exam in exams %}
+            <div class="border rounded p-3 mb-3">
+                <h5>{{ exam.course.code }}: {{ exam.title }}</h5>
+                <p class="small text-muted mb-2">
+                    Window: {{ exam.booking_start.strftime('%Y-%m-%d %H:%M') }} to {{ exam.booking_end.strftime('%Y-%m-%d %H:%M') }} |
+                    Examiner: {{ exam.examiner.username if exam.examiner else 'Unassigned' }}
+                </p>
+                <ul class="small">
+                    {% for crit in exam.criteria %}
+                        <li>{{ crit.name }} ({{ crit.max_marks }} marks)</li>
+                    {% else %}
+                        <li class="text-muted">No rubric criteria yet.</li>
+                    {% endfor %}
+                </ul>
+                <form method="POST" action="{{ url_for('admin.add_criterion', exam_id=exam.id) }}" class="row g-2">
+                    <div class="col-md-6">
+                        <input type="text" name="name" class="form-control form-control-sm" placeholder="Criterion Name (e.g., Code Quality)" required>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="number" step="0.5" name="max_marks" class="form-control form-control-sm" placeholder="Max Marks" required>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-outline-secondary btn-sm w-100">Add Criterion</button>
+                    </div>
+                </form>
+            </div>
+        {% else %}
+            <p class="text-muted mb-0">No exams created yet.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
