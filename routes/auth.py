@@ -53,3 +53,15 @@ def login():
 def logout():
     logout_user()
     return redirect(url_for('auth.login'))
+
+@auth_bp.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    if request.method == 'POST':
+        new_pw = request.form.get('new_password', '').strip()
+        if new_pw:
+            current_user.set_password(new_pw)
+            db.session.commit()
+            flash('Password updated successfully.')
+        return redirect(url_for('auth.profile'))
+    return render_template('auth/profile.html')

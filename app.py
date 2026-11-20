@@ -43,7 +43,7 @@ def create_app():
                 return redirect(url_for('examiner.dashboard'))
             elif current_user.role == 'student':
                 return redirect(url_for('student.dashboard'))
-        return render_template('base.html')
+        return render_template('index.html')
 
     return app
 
