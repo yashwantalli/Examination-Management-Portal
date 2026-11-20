@@ -4,6 +4,7 @@ from config import Config
 from models import db, User
 from routes.auth import auth_bp
 from routes.admin import admin_bp
+from routes.examiner import examiner_bp
 
 def create_app():
     app = Flask(__name__)
@@ -21,6 +22,7 @@ def create_app():
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(examiner_bp)
 
     with app.app_context():
         db.create_all()
@@ -35,6 +37,8 @@ def create_app():
         if current_user.is_authenticated:
             if current_user.role == 'admin':
                 return redirect(url_for('admin.dashboard'))
+            elif current_user.role == 'examiner':
+                return redirect(url_for('examiner.dashboard'))
         return render_template('base.html')
 
     return app
