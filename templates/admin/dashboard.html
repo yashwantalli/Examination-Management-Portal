@@ -121,4 +121,50 @@
         {% endfor %}
     </div>
 </div>
+
+<!-- Examiner Reassignment & Active Bookings Rescheduling -->
+<div class="card mt-4">
+    <div class="card-header"><strong>Administrative Overrides (Reassign & Reschedule)</strong></div>
+    <div class="card-body">
+        <h6>Reassign Exam Examiner</h6>
+        {% for exam in exams %}
+            <form method="POST" action="{{ url_for('admin.reassign_examiner', exam_id=exam.id) }}" class="row g-2 mb-2 align-items-center">
+                <div class="col-md-5 small"><strong>{{ exam.course.code }} - {{ exam.title }}</strong> (Current: {{ exam.examiner.username if exam.examiner else 'None' }})</div>
+                <div class="col-md-4">
+                    <select name="examiner_id" class="form-select form-select-sm" required>
+                        {% for ex in approved_examiners %}
+                            <option value="{{ ex.id }}">{{ ex.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-warning btn-sm w-100">Reassign</button>
+                </div>
+            </form>
+        {% endfor %}
+
+        <hr>
+        <h6>Reschedule Active Bookings</h6>
+        {% for b in bookings if b.status == 'booked' %}
+            <form method="POST" action="{{ url_for('admin.reschedule_booking', booking_id=b.id) }}" class="row g-2 mb-2 align-items-center">
+                <div class="col-md-5 small">
+                    <strong>{{ b.student.username }}</strong> — {{ b.slot.exam.title }} ({{ b.slot.start_time.strftime('%Y-%m-%d %H:%M') }})
+                </div>
+                <div class="col-md-4">
+                    <select name="new_slot_id" class="form-select form-select-sm" required>
+                        {% for s in b.slot.exam.slots if s.id != b.slot_id and not s.is_full %}
+                            <option value="{{ s.id }}">{{ s.start_time.strftime('%Y-%m-%d %H:%M') }} ({{ s.examiner.username }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary btn-sm w-100">Move Slot</button>
+                </div>
+            </form>
+        {% else %}
+            <p class="small text-muted mb-0">No active bookings to reschedule.</p>
+        {% endfor %}
+    </div>
+</div>
+
 {% endblock %}

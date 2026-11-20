@@ -93,3 +93,43 @@ def add_criterion(exam_id):
     db.session.commit()
     flash(f'Criterion added to {exam.title}.')
     return redirect(url_for('admin.dashboard'))
+
+
+@admin_bp.route('/exams/<int:exam_id>/reassign', methods=['POST'])
+@login_required
+@admin_required
+def reassign_examiner(exam_id):
+    exam = Exam.query.get_or_404(exam_id)
+    new_examiner_id = request.form.get('examiner_id')
+    if new_examiner_id:
+        exam.examiner_id = int(new_examiner_id)
+        db.session.commit()
+        flash(f'Reassigned examiner for {exam.title}.')
+    return redirect(url_for('admin.dashboard'))
+
+@admin_bp.route('/bookings/<int:booking_id>/reschedule', methods=['POST'])
+@login_required
+@admin_required
+def reschedule_booking(booking_id):
+    booking = Booking.query.get_or_404(booking_id)
+    new_slot_id = int(request.form.get('new_slot_id'))
+    new_slot = Slot.query.get_or_404(new_slot_id)
+
+    if new_slot.exam_id != booking.slot.exam_id:
+        flash('Can only reschedule to another slot of the same exam.')
+        return redirect(url_for('admin.dashboard'))
+
+    active_count = Booking.query.filter_by(slot_id=new_slot.id).filter(Booking.status != 'cancelled').count()
+    if new_slot.is_full or active_count >= new_slot.capacity:
+        flash('Target slot is already full.')
+        return redirect(url_for('admin.dashboard'))
+
+    old_slot = booking.slot
+    booking.slot_id = new_slot.id
+    old_slot.is_full = False
+    if active_count + 1 >= new_slot.capacity:
+        new_slot.is_full = True
+
+    db.session.commit()
+    flash(f'Rescheduled {booking.student.username} to slot {new_slot.start_time.strftime("%Y-%m-%d %H:%M")}.')
+    return redirect(url_for('admin.dashboard'))

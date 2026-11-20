@@ -36,12 +36,10 @@ def book_slot(slot_id):
     exam = slot.exam
     now = datetime.now()
 
-    # 1. Enforce configured booking time window
     if not (exam.booking_start <= now <= exam.booking_end):
         flash('Booking is only allowed within the configured exam booking window.')
         return redirect(url_for('student.dashboard'))
 
-    # 2. Prevent duplicate active booking for the same exam
     existing = (
         Booking.query.join(Slot)
         .filter(
@@ -55,7 +53,6 @@ def book_slot(slot_id):
         flash('You already have an active booking for this exam.')
         return redirect(url_for('student.dashboard'))
 
-    # 3. Enforce slot capacity
     active_count = Booking.query.filter_by(slot_id=slot.id).filter(Booking.status != 'cancelled').count()
     if slot.is_full or active_count >= slot.capacity:
         slot.is_full = True
@@ -66,7 +63,6 @@ def book_slot(slot_id):
     booking = Booking(student_id=current_user.id, slot_id=slot.id, status='booked')
     db.session.add(booking)
 
-    # Mark slot full automatically if capacity reached
     if active_count + 1 >= slot.capacity:
         slot.is_full = True
 
@@ -92,7 +88,6 @@ def cancel_booking(booking_id):
         return redirect(url_for('student.dashboard'))
 
     booking.status = 'cancelled'
-    # Reopen slot capacity
     booking.slot.is_full = False
     db.session.commit()
     flash('Booking cancelled.')

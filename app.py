@@ -5,6 +5,7 @@ from models import db, User
 from routes.auth import auth_bp
 from routes.admin import admin_bp
 from routes.examiner import examiner_bp
+from routes.student import student_bp
 
 def create_app():
     app = Flask(__name__)
@@ -18,11 +19,12 @@ def create_app():
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(examiner_bp)
+    app.register_blueprint(student_bp)
 
     with app.app_context():
         db.create_all()
@@ -31,7 +33,6 @@ def create_app():
             admin.set_password('admin123')
             db.session.add(admin)
             db.session.commit()
-
 
     @app.route('/')
     def index():
