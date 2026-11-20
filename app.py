@@ -32,6 +32,7 @@ def create_app():
             db.session.add(admin)
             db.session.commit()
 
+
     @app.route('/')
     def index():
         if current_user.is_authenticated:
@@ -39,6 +40,8 @@ def create_app():
                 return redirect(url_for('admin.dashboard'))
             elif current_user.role == 'examiner':
                 return redirect(url_for('examiner.dashboard'))
+            elif current_user.role == 'student':
+                return redirect(url_for('student.dashboard'))
         return render_template('base.html')
 
     return app

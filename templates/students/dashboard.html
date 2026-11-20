@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">Student Dashboard</h2>
+
+<!-- My Bookings & Results -->
+<div class="card mb-4">
+    <div class="card-header"><strong>My Bookings & Results</strong></div>
+    <div class="card-body">
+        {% if bookings %}
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>Exam</th>
+                        <th>Slot Time</th>
+                        <th>Examiner</th>
+                        <th>Status</th>
+                        <th>Marks & Remarks</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for b in bookings %}
+                    <tr>
+                        <td>{{ b.slot.exam.course.code }} - {{ b.slot.exam.title }}</td>
+                        <td>{{ b.slot.start_time.strftime('%Y-%m-%d %H:%M') }}</td>
+                        <td>{{ b.slot.examiner.username }}</td>
+                        <td>
+                            <span class="badge bg-{{ 'success' if b.status == 'evaluated' else ('primary' if b.status == 'booked' else 'secondary') }}">
+                                {{ b.status }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if b.evaluation %}
+                                <strong>{{ b.evaluation.total_marks }}</strong> — {{ b.evaluation.remarks or 'No remarks' }}
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if b.status == 'booked' and now <= b.slot.exam.booking_end %}
+                                <form method="POST" action="{{ url_for('student.cancel_booking', booking_id=b.id) }}">
+                                    <button class="btn btn-outline-danger btn-sm">Cancel</button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted mb-0">No bookings yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Available Exams & Slots -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <strong>Available Exams & Slots</strong>
+        <form method="GET" class="d-flex gap-2">
+            <input type="text" name="q" value="{{ query }}" class="form-control form-control-sm" placeholder="Search exam title...">
+            <button class="btn btn-outline-primary btn-sm">Search</button>
+        </form>
+    </div>
+    <div class="card-body">
+        {% for exam in exams %}
+            <div class="border rounded p-3 mb-3">
+                <h5>{{ exam.course.code }}: {{ exam.title }}</h5>
+                <p class="small text-muted mb-2">
+                    Booking Window: {{ exam.booking_start.strftime('%Y-%m-%d %H:%M') }} to {{ exam.booking_end.strftime('%Y-%m-%d %H:%M') }}
+                </p>
+                {% if exam.slots %}
+                    <div class="list-group">
+                    {% for slot in exam.slots %}
+                        {% set active_count = slot.bookings|selectattr('status', 'ne', 'cancelled')|list|length %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>{{ slot.start_time.strftime('%Y-%m-%d %H:%M') }} – {{ slot.end_time.strftime('%H:%M') }}</strong>
+                                <span class="text-muted small ms-2">Examiner: {{ slot.examiner.username }}</span>
+                                <span class="badge bg-{{ 'danger' if slot.is_full else 'info' }} ms-2">
+                                    {{ active_count }}/{{ slot.capacity }} {{ 'FULL' if slot.is_full else 'Available' }}
+                                </span>
+                            </div>
+                            <form method="POST" action="{{ url_for('student.book_slot', slot_id=slot.id) }}">
+                                <button class="btn btn-primary btn-sm" {% if slot.is_full or not (exam.booking_start <= now <= exam.booking_end) %}disabled{% endif %}>
+                                    Book Slot
+                                </button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="small text-muted mb-0">No slots published yet.</p>
+                {% endif %}
+            </div>
+        {% else %}
+            <p class="text-muted mb-0">No exams found.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
