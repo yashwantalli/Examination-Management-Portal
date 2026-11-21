@@ -1,0 +1,71 @@
+{% macro csrf() %}<input type="hidden" name="_csrf" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro badge(status) -%}
+{%- set map = {
+  'active':'success','approved':'success','open':'success','booked':'primary','completed':'secondary',
+  'published':'success','submitted':'info','sent':'success','logged':'secondary',
+  'pending':'warning','draft':'warning','full':'warning',
+  'inactive':'secondary','closed':'secondary','removed':'secondary',
+  'rejected':'danger','deactivated':'danger','cancelled':'danger','failed':'danger',
+  'rescheduled':'info','examiner_reassigned':'info','evaluated':'secondary'} -%}
+<span class="badge rounded-pill text-bg-{{ map.get(status, 'light') }} status-badge">{{ status|replace('_',' ')|capitalize }}</span>
+{%- endmacro %}
+
+{% macro post_button(action, label, cls='btn-outline-secondary btn-sm', hidden=None) -%}
+<form method="post" action="{{ action }}" class="d-inline">
+  {{ csrf() }}
+  {% if hidden %}{% for k, v in hidden.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}{% endif %}
+  <button type="submit" class="btn {{ cls }}">{{ label }}</button>
+</form>
+{%- endmacro %}
+
+{% macro stat_cards(stats) %}
+<div class="row g-3 mb-4">
+  {% for label, value in stats.items() %}
+  <div class="col-6 col-md-4 col-xl">
+    <div class="card stat-card h-100"><div class="card-body">
+      <div class="stat-value">{{ value }}</div>
+      <div class="stat-label">{{ label }}</div>
+    </div></div>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{# Column chart rendered as inline SVG — no JavaScript required. items: [(label, value)] #}
+{% macro column_chart(items, title) %}
+{% set maxv = (items|map(attribute=1)|max) if items else 0 %}
+{% set maxv = maxv if maxv > 0 else 1 %}
+{% set w = 36 %}
+<svg class="chart" viewBox="0 0 {{ items|length * w + 10 }} 170" role="img" aria-label="{{ title }}">
+  <line x1="5" y1="140" x2="{{ items|length * w + 5 }}" y2="140" class="chart-axis"/>
+  {% for label, value in items %}
+    {% set h = (value / maxv * 115)|round(1) %}
+    {% set x = 5 + loop.index0 * w + 7 %}
+    <rect x="{{ x }}" y="{{ 140 - h }}" width="{{ w - 14 }}" height="{{ h }}" rx="3" class="chart-bar"><title>{{ label }}: {{ value }}</title></rect>
+    {% if value %}<text x="{{ x + (w-14)/2 }}" y="{{ 135 - h }}" class="chart-value" text-anchor="middle">{{ value }}</text>{% endif %}
+    <text x="{{ x + (w-14)/2 }}" y="156" class="chart-label" text-anchor="middle">{{ label.split(' ')[0] }}</text>
+    <text x="{{ x + (w-14)/2 }}" y="166" class="chart-label" text-anchor="middle">{{ label.split(' ')[1] }}</text>
+  {% endfor %}
+</svg>
+{% endmacro %}
+
+{# Horizontal bars built from Bootstrap progress components. items: [(label, value)] #}
+{% macro bar_list(items, unit='') %}
+{% set maxv = (items|map(attribute=1)|max) if items else 0 %}
+{% for label, value in items %}
+<div class="mb-2">
+  <div class="d-flex justify-content-between small"><span class="text-truncate me-2">{{ label }}</span><span class="fw-semibold">{{ value }}{{ unit }}</span></div>
+  <div class="progress" role="progressbar" aria-valuenow="{{ value }}" aria-valuemin="0" aria-valuemax="{{ maxv }}" style="height: 8px">
+    <div class="progress-bar bg-chart" style="width: {{ (value / maxv * 100) if maxv else 0 }}%"></div>
+  </div>
+</div>
+{% else %}<p class="text-body-secondary small mb-0">No data yet.</p>
+{% endfor %}
+{% endmacro %}
+
+{% macro empty(text) %}<div class="empty-state">{{ text }}</div>{% endmacro %}
+
+{% macro seats(slot) %}
+<span class="{{ 'text-danger fw-semibold' if slot.available_seats == 0 else '' }}">{{ slot.available_seats }}/{{ slot.capacity }}</span>
+{% endmacro %}
