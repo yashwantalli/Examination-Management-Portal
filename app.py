@@ -4,8 +4,10 @@ Run with:  python app.py         (or:  flask --app app run)
 The SQLite database and all tables are created automatically on start-up and
 the Admin account is seeded from configuration (see config.py / README.md).
 """
+import logging
 import os
 import secrets
+import sys
 
 import click
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
@@ -63,6 +65,7 @@ def create_app(config_object=Config):
     if app.config.get("TRUST_PROXY"):
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+    _configure_logging(app)
     _register_csrf(app)
     _register_security_headers(app)
     _register_template_helpers(app)
@@ -148,6 +151,18 @@ def _register_csrf(app):
         token = request.form.get("_csrf")
         if not token or token != session.get("_csrf"):
             abort(400, description="Your form expired. Please go back, refresh and try again.")
+
+
+# --------------------------------------------------------------------------- logging
+def _configure_logging(app):
+    """Send application logs to stdout, where Docker and hosting platforms collect them."""
+    if app.config.get("TESTING"):
+        return
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    app.logger.handlers = [handler]
+    app.logger.setLevel(app.config["LOG_LEVEL"])
+    app.logger.propagate = False
 
 
 # --------------------------------------------------------------------------- security headers

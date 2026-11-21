@@ -49,6 +49,7 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
     TIMEZONE = os.environ.get("EMP_TIMEZONE", "Asia/Kolkata")
+    LOG_LEVEL = os.environ.get("EMP_LOG_LEVEL", "INFO").upper()
 
     # Development builds tables itself; production uses `flask db upgrade` migrations.
     AUTO_CREATE_TABLES = os.environ.get("EMP_AUTO_CREATE_TABLES", "0" if IS_PRODUCTION else "1") == "1"
