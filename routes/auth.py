@@ -4,6 +4,7 @@ import re
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
+from extensions import LOGIN_LIMIT, REGISTER_LIMIT, limiter
 from models import ExaminerProfile, Notification, StudentProfile, User, db
 
 bp = Blueprint("auth", __name__)
@@ -22,6 +23,7 @@ def _safe_next(target):
 
 
 @bp.route("/login", methods=["GET", "POST"])
+@limiter.limit(LOGIN_LIMIT, methods=["POST"])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("index"))
@@ -51,6 +53,7 @@ def logout():
 
 
 @bp.route("/register", methods=["GET", "POST"])
+@limiter.limit(REGISTER_LIMIT, methods=["POST"])
 def register():
     """Public registration — only Student or Examiner. Admin sign-up is not offered."""
     if current_user.is_authenticated:

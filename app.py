@@ -17,6 +17,7 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
 from config import BASE_DIR, INSTANCE_DIR, Config, validate_config
+from extensions import limiter
 from models import User, db
 
 login_manager = LoginManager()
@@ -47,6 +48,7 @@ def create_app(config_object=Config):
 
     db.init_app(app)
     migrate.init_app(app, db, directory=os.path.join(BASE_DIR, "migrations"))
+    limiter.init_app(app)
     login_manager.init_app(app)
 
     from routes.admin import bp as admin_bp
@@ -205,6 +207,10 @@ def _register_errors(app):
     @app.errorhandler(403)
     def _403(e):
         return _render(403, "Access denied", "You do not have permission to open this page.")
+
+    @app.errorhandler(429)
+    def _429(e):
+        return _render(429, "Too many attempts", "Too many attempts. Please wait a minute and try again.")
 
     @app.errorhandler(404)
     def _404(e):

@@ -8,6 +8,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, login_user, logout_user
 from sqlalchemy import or_
 
+from extensions import LOGIN_LIMIT, limiter
 from models import Booking, Course, ExaminerProfile, Examination, Slot, StudentProfile, User, db
 from routes import role_required
 from routes.admin import dashboard_stats
@@ -27,6 +28,7 @@ def _404(what="Resource"):
 
 # ------------------------------------------------------------------ auth
 @bp.post("/auth/login")
+@limiter.limit(LOGIN_LIMIT)
 def api_login():
     data = request.get_json(silent=True) or {}
     email = str(data.get("email", "")).strip().lower()

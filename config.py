@@ -69,6 +69,12 @@ class Config:
 
     CSRF_ENABLED = True
 
+    # Rate limiting. memory:// is per worker process (fine for one small instance); point
+    # EMP_RATELIMIT_STORAGE_URI at Redis (redis://...) to share counters across workers/instances.
+    RATELIMIT_ENABLED = os.environ.get("EMP_RATELIMIT_ENABLED", "1") == "1"
+    RATELIMIT_STORAGE_URI = os.environ.get("EMP_RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_HEADERS_ENABLED = True
+
     # Cookies: only sent over HTTPS in production, never readable by JavaScript.
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
@@ -84,6 +90,7 @@ class TestConfig(Config):
     TESTING = True
     IS_PRODUCTION = False
     AUTO_CREATE_TABLES = True
+    RATELIMIT_ENABLED = False  # tests that need it switch it on explicitly
     # Set TEST_DATABASE_URL to run the whole suite against PostgreSQL instead of SQLite.
     SQLALCHEMY_DATABASE_URI = normalize_database_uri(
         os.environ.get("TEST_DATABASE_URL", "sqlite:///:memory:"))
