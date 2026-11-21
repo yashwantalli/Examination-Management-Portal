@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Awaiting approval{% endblock %}
+{% block content %}
+<div class="card mx-auto" style="max-width: 600px"><div class="card-body p-4 text-center">
+  {% if status == 'pending' %}
+    <h1 class="h4">Your examiner account is awaiting approval</h1>
+    <p class="text-body-secondary">The administrator reviews every examiner registration. You'll receive an e-mail once your account is approved; examiner features stay locked until then.</p>
+  {% else %}
+    <h1 class="h4">Your examiner account is {{ status }}</h1>
+    <p class="text-body-secondary">Examiner features are unavailable. Please contact the examination office if you think this is a mistake.</p>
+  {% endif %}
+  <a class="btn btn-outline-primary" href="{{ url_for('auth.profile') }}">View my profile</a>
+</div></div>
+{% endblock %}

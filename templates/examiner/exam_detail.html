@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}{{ exam.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ exam.name }} {{ badge(exam.status) }}</h1>
+    <div class="sub">{{ exam.course.course_code }} · {{ exam.exam_type }} · {{ exam.duration_minutes }} min · {{ exam.maximum_marks }} marks</div></div>
+  {% if exam.slot_creation_allowed(now) %}<a class="btn btn-primary btn-sm" href="{{ url_for('examiner.slot_new', exam_id=exam.id) }}">Create slot</a>{% endif %}
+</div>
+<div class="row g-3">
+  <div class="col-lg-5"><div class="card mb-3"><div class="card-body">
+    <dl class="kv mb-0">
+      <dt>Slot creation window</dt><dd>{{ exam.slot_creation_start|dt }} → {{ exam.slot_creation_end|dt }} {{ badge('open' if exam.slot_creation_allowed(now) else 'closed') }}</dd>
+      <dt>Student booking window</dt><dd>{{ exam.booking_start|dt }} → {{ exam.booking_end|dt }}</dd>
+      {% if exam.description %}<dt>Instructions</dt><dd>{{ exam.description }}</dd>{% endif %}
+    </dl>
+  </div></div>
+  <div class="card"><div class="card-header">Rubric ({{ exam.rubric_total }} marks)</div>
+    <ul class="list-group list-group-flush">{% for c in exam.criteria %}
+      <li class="list-group-item d-flex justify-content-between"><span>{{ c.criterion_name }}</span><span class="text-body-secondary">{{ c.maximum_marks }}</span></li>
+    {% else %}<li class="list-group-item small text-body-secondary">No rubric yet.</li>{% endfor %}</ul>
+  </div></div>
+  <div class="col-lg-7"><div class="card"><div class="card-header">My slots for this examination</div>
+    {% if slots %}<div class="table-responsive"><table class="table table-hover">
+      <thead><tr><th>When</th><th>Venue</th><th>Booked</th><th>Status</th></tr></thead>
+      <tbody>{% for s in slots %}<tr><td><a href="{{ url_for('examiner.slot_detail', slot_id=s.id) }}">{{ s.label() }}</a></td>
+        <td>{{ s.venue or '—' }}</td><td>{{ s.booked_count }}/{{ s.capacity }}</td><td>{{ badge(s.status) }}</td></tr>{% endfor %}</tbody>
+    </table></div>{% else %}{{ empty('You have no slots for this examination.') }}{% endif %}
+  </div></div>
+</div>
+{% endblock %}

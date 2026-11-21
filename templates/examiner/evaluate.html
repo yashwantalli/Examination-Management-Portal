@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge %}
+{% block title %}Evaluate {{ booking.student.name }}{% endblock %}
+{% block content %}
+{% set posted = request.method == 'POST' %}
+<div class="page-head"><div>
+  <div class="small text-body-secondary"><a href="{{ url_for('examiner.slot_detail', slot_id=booking.slot_id) }}">Slot {{ booking.slot.label() }}</a> / evaluation</div>
+  <h1>{{ booking.student.name }}</h1>
+  <div class="sub">{{ booking.student.student_profile.student_number }} · {{ exam.name }} · maximum {{ exam.maximum_marks }} marks</div>
+</div>{% if booking.evaluation %}<div>{{ badge(booking.evaluation.status) }}</div>{% endif %}</div>
+{% if not exam.criteria %}
+<div class="alert alert-warning">This examination has no rubric yet. Ask the administrator to add rubric criteria.</div>
+{% else %}
+<form method="post" class="card" style="max-width: 860px"><div class="card-body p-4">
+  {{ csrf() }}
+  <div class="table-responsive"><table class="table align-middle">
+    <thead><tr><th>Criterion</th><th style="width:140px">Marks</th><th>Comment</th></tr></thead>
+    <tbody>{% for c in exam.criteria %}{% set prev = existing.get(c.id) %}
+      <tr><td><div class="fw-semibold">{{ c.criterion_name }}</div><div class="small text-body-secondary">{{ (c.description ~ ' · ') if c.description }}max {{ c.maximum_marks }}</div></td>
+        <td><div class="input-group input-group-sm">
+          <input type="number" class="form-control" name="score_{{ c.id }}" min="0" max="{{ c.maximum_marks }}" step="0.5" required aria-label="Marks for {{ c.criterion_name }}"
+                 value="{{ form.get('score_' ~ c.id, '') if posted else (prev.marks_awarded|marks if prev else '') }}">
+          <span class="input-group-text">/ {{ c.maximum_marks }}</span></div></td>
+        <td><input class="form-control form-control-sm" name="comment_{{ c.id }}" maxlength="255" aria-label="Comment for {{ c.criterion_name }}"
+                   value="{{ form.get('comment_' ~ c.id, '') if posted else (prev.comment or '' if prev else '') }}"></td></tr>
+    {% endfor %}</tbody>
+  </table></div>
+  <label class="form-label" for="remarks">Overall remarks / feedback for the student</label>
+  <textarea class="form-control mb-3" id="remarks" name="remarks" rows="3" maxlength="2000">{{ form.get('remarks', '') if posted else (booking.evaluation.remarks or '' if booking.evaluation else '') }}</textarea>
+  <div class="small text-body-secondary mb-3">Marks are validated against each criterion's maximum and the examination maximum. Students see results only after the administrator publishes them.</div>
+  <button class="btn btn-primary">{{ 'Update evaluation' if booking.evaluation else 'Submit evaluation' }}</button>
+  <a class="btn btn-link" href="{{ url_for('examiner.slot_detail', slot_id=booking.slot_id) }}">Cancel</a>
+</div></form>
+{% endif %}
+{% endblock %}

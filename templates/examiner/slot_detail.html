@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, post_button, empty %}
+{% block title %}Slot #{{ slot.id }}{% endblock %}
+{% block content %}
+{% set editable = slot.examination.slot_creation_allowed(now) %}
+<div class="page-head">
+  <div><div class="small text-body-secondary"><a href="{{ url_for('examiner.slots') }}">My slots</a> / #{{ slot.id }}</div>
+    <h1>{{ slot.label() }} {{ badge(slot.status) }}</h1>
+    <div class="sub">{{ slot.examination.name }} · {{ slot.venue or 'Venue TBA' }} · {{ slot.booked_count }}/{{ slot.capacity }} booked</div></div>
+  <div class="d-flex gap-2">
+    {% if editable %}
+      <a class="btn btn-outline-primary btn-sm" href="{{ url_for('examiner.slot_edit', slot_id=slot.id) }}">Edit slot</a>
+      {% if not slot.bookings %}{{ post_button(url_for('examiner.slot_delete', slot_id=slot.id), 'Remove slot', 'btn-outline-danger btn-sm') }}{% endif %}
+    {% else %}<span class="small text-body-secondary align-self-center">Slot creation window is closed — this slot is locked.</span>{% endif %}
+  </div>
+</div>
+<div class="card">
+  <div class="card-header">Booked students</div>
+  {% set rows = slot.bookings|selectattr('status','in',['booked','completed'])|list %}
+  {% if rows %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>Student</th><th>Student ID</th><th>Booked at</th><th>Status</th><th>Marks</th><th></th></tr></thead>
+    <tbody>{% for b in rows %}
+      <tr><td>{{ b.student.name }}</td><td class="mono">{{ b.student.student_profile.student_number }}</td><td class="small">{{ b.booked_at|dt }}</td>
+        <td>{{ badge(b.status) }}</td>
+        <td>{% if b.evaluation %}{{ b.evaluation.total_marks|marks }}/{{ slot.examination.maximum_marks }} {{ badge(b.evaluation.status) }}{% else %}—{% endif %}</td>
+        <td class="text-end">
+          {% if slot.start_dt <= now and not (b.evaluation and b.evaluation.published_at) %}
+            <a class="btn btn-sm {{ 'btn-outline-primary' if b.evaluation else 'btn-primary' }}" href="{{ url_for('examiner.evaluate', booking_id=b.id) }}">{{ 'Edit marks' if b.evaluation else 'Evaluate' }}</a>
+          {% elif slot.start_dt > now %}<span class="small text-body-secondary">after slot starts</span>
+          {% else %}<span class="small text-body-secondary">locked</span>{% endif %}
+        </td></tr>
+    {% endfor %}</tbody></table></div>
+  {% else %}{{ empty('No students have booked this slot yet.') }}{% endif %}
+</div>
+{% endblock %}

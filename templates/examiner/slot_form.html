@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ 'Edit' if slot else 'New' }} slot{% endblock %}
+{% macro fv(field, default) %}{{ request.form.get(field, '') if request.method == 'POST' else (default if default is not none else '') }}{% endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>{{ 'Edit slot #' ~ slot.id if slot else 'Create a slot' }}</h1>
+  <div class="sub">The slot must be at least as long as the examination and must not overlap another of your slots.</div></div></div>
+{% if not exams %}
+  <div class="alert alert-info">You are not assigned to any examination yet, so you cannot create slots.</div>
+{% else %}
+<div class="card" style="max-width: 720px"><div class="card-body p-4">
+  <form method="post">
+    {{ csrf() }}
+    <div class="mb-3"><label class="form-label" for="examination_id">Examination</label>
+      <select class="form-select" id="examination_id" name="examination_id" required {{ 'disabled' if slot }}>
+        {% for e in exams %}<option value="{{ e.id }}" {{ 'selected' if e.id == selected }}>{{ e.course.course_code }} · {{ e.name }} ({{ e.duration_minutes }} min) — slot creation {{ 'OPEN' if e.slot_creation_allowed(now) else 'closed' }}</option>{% endfor %}
+      </select>
+      {% if slot %}<input type="hidden" name="examination_id" value="{{ slot.examination_id }}">{% endif %}
+    </div>
+    <div class="row g-3">
+      <div class="col-md-4"><label class="form-label" for="exam_date">Date</label>
+        <input type="date" class="form-control" id="exam_date" name="exam_date" required min="{{ now.strftime('%Y-%m-%d') }}" value="{{ fv('exam_date', slot.exam_date.isoformat() if slot else None) }}"></div>
+      <div class="col-6 col-md-4"><label class="form-label" for="start_time">Start</label>
+        <input type="time" class="form-control" id="start_time" name="start_time" required value="{{ fv('start_time', slot.start_time.strftime('%H:%M') if slot else None) }}"></div>
+      <div class="col-6 col-md-4"><label class="form-label" for="end_time">End</label>
+        <input type="time" class="form-control" id="end_time" name="end_time" required value="{{ fv('end_time', slot.end_time.strftime('%H:%M') if slot else None) }}"></div>
+      <div class="col-md-4"><label class="form-label" for="capacity">Capacity (students)</label>
+        <input type="number" class="form-control" id="capacity" name="capacity" min="1" max="500" required value="{{ fv('capacity', slot.capacity if slot else 5) }}"></div>
+      <div class="col-md-8"><label class="form-label" for="venue">Venue</label>
+        <input class="form-control" id="venue" name="venue" maxlength="120" placeholder="e.g. Lab B-201" value="{{ fv('venue', slot.venue if slot else None) }}"></div>
+    </div>
+    <div class="mt-4">
+      <button class="btn btn-primary">{{ 'Save changes' if slot else 'Create slot' }}</button>
+      <a class="btn btn-link" href="{{ url_for('examiner.slot_detail', slot_id=slot.id) if slot else url_for('examiner.slots') }}">Cancel</a>
+    </div>
+  </form>
+</div></div>
+{% endif %}
+{% endblock %}
