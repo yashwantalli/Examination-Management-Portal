@@ -24,9 +24,18 @@ def _database_uri():
     uri = os.environ.get("DATABASE_URL") or os.environ.get("EMP_DATABASE_URI")
     if not uri:
         return "sqlite:///" + os.path.join(INSTANCE_DIR, "emp.sqlite3")
-    # Some hosts (Heroku, older Render) still hand out the legacy scheme.
-    if uri.startswith("postgres://"):
-        uri = "postgresql://" + uri[len("postgres://"):]
+    return normalize_database_uri(uri)
+
+
+def normalize_database_uri(uri):
+    """Point every PostgreSQL URL at the psycopg 3 driver.
+
+    Hosts hand out ``postgres://`` or ``postgresql://``; SQLAlchemy would pick the
+    older psycopg2 driver for both, which this project does not install.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if uri.startswith(prefix):
+            return "postgresql+psycopg://" + uri[len(prefix):]
     return uri
 
 
@@ -66,7 +75,9 @@ class Config:
 class TestConfig(Config):
     TESTING = True
     IS_PRODUCTION = False
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    # Set TEST_DATABASE_URL to run the whole suite against PostgreSQL instead of SQLite.
+    SQLALCHEMY_DATABASE_URI = normalize_database_uri(
+        os.environ.get("TEST_DATABASE_URL", "sqlite:///:memory:"))
     SQLALCHEMY_ENGINE_OPTIONS = {}
     CSRF_ENABLED = False
     MAIL_SERVER = ""
