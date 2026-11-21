@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge %}
+{% block title %}Booking #{{ booking.id }}{% endblock %}
+{% block content %}
+{% set b = booking %}
+<div class="page-head"><div>
+  <div class="small text-body-secondary"><a href="{{ url_for('student.bookings') }}">My bookings</a> / #{{ b.id }}</div>
+  <h1>{{ b.examination.name }} {{ badge(b.status) }}</h1>
+  <div class="sub">{{ b.examination.course.course_code }} · {{ b.examination.course.name }}</div>
+</div></div>
+<div class="row g-3">
+  <div class="col-lg-5"><div class="card h-100"><div class="card-body">
+    <dl class="kv">
+      <dt>Slot</dt><dd class="fw-semibold">{{ b.slot.label() }}</dd>
+      <dt>Venue</dt><dd>{{ b.slot.venue or 'To be announced' }}</dd>
+      <dt>Examiner</dt><dd>{{ b.slot.examiner.name }}</dd>
+      <dt>Booked on</dt><dd>{{ b.booked_at|dt }}</dd>
+      {% if b.status == 'booked' %}<dt>Cancel before</dt><dd>{{ b.slot.cancellation_deadline|dt }}</dd>{% endif %}
+      {% if b.cancelled_at %}<dt>Cancelled</dt><dd>{{ b.cancelled_at|dt }} — {{ b.cancel_reason }}</dd>{% endif %}
+    </dl>
+    {% if b.can_student_cancel %}
+    <form method="post" action="{{ url_for('student.cancel', booking_id=b.id) }}" class="border-top pt-3">
+      {{ csrf() }}
+      <label class="form-label small" for="reason">Reason for cancelling (optional)</label>
+      <input class="form-control mb-2" id="reason" name="reason" maxlength="200">
+      <button class="btn btn-outline-danger">Cancel this booking</button>
+    </form>
+    {% endif %}
+    {% if b.evaluation and b.evaluation.published_at %}
+      <a class="btn btn-primary" href="{{ url_for('student.result_detail', booking_id=b.id) }}">View result</a>
+    {% elif b.status == 'completed' %}<p class="small text-body-secondary mb-0">You have been evaluated. Your result will appear once it is published.</p>{% endif %}
+  </div></div></div>
+  <div class="col-lg-7"><div class="card h-100"><div class="card-header">Booking history</div><div class="card-body">
+    <ul class="timeline-list">{% for e in b.events %}
+      <li><div class="small">{{ badge(e.action) }}</div>
+        {% if e.action == 'rescheduled' %}<div class="small">{{ e.from_slot.label() }} → {{ e.to_slot.label() }}</div>{% endif %}
+        {% if e.note and e.action != 'evaluated' %}<div class="small">{{ e.note }}</div>{% endif %}
+        <div class="small text-body-secondary">{{ e.created_at|dt }}</div></li>
+    {% endfor %}</ul>
+  </div></div></div>
+</div>
+{% endblock %}

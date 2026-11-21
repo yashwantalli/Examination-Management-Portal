@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, post_button, empty, seats %}
+{% block title %}{{ exam.name }}{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <div class="small text-body-secondary"><a href="{{ url_for('student.exams') }}">Examinations</a> / {{ exam.course.course_code }}</div>
+  <h1>{{ exam.name }}</h1>
+  <div class="sub">{{ exam.course.name }} · {{ exam.exam_type }} · {{ exam.duration_minutes }} min · {{ exam.maximum_marks }} marks (pass {{ exam.passing_marks }})</div>
+</div></div>
+
+{% if mine %}
+  <div class="alert alert-primary d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span>You are booked for <strong>{{ mine.slot.label() }}</strong> with {{ mine.slot.examiner.name }} ({{ mine.status }}). Only one booking per examination is allowed.</span>
+    <a class="btn btn-sm btn-primary" href="{{ url_for('student.booking_detail', booking_id=mine.id) }}">View booking</a>
+  </div>
+{% elif not can_book %}
+  <div class="alert alert-secondary">
+    {% if now < exam.booking_start %}Booking opens on <strong>{{ exam.booking_start|dt }}</strong>.
+    {% elif now > exam.booking_end %}The booking window closed on {{ exam.booking_end|dt }}.
+    {% else %}Booking is currently closed by the administrator.{% endif %}
+  </div>
+{% endif %}
+
+<div class="row g-3">
+  <div class="col-lg-8"><div class="card">
+    <div class="card-header">Available slots</div>
+    {% if slots %}
+    <div class="table-responsive"><table class="table table-hover">
+      <thead><tr><th>When</th><th>Examiner</th><th>Venue</th><th>Seats left</th><th></th></tr></thead>
+      <tbody>{% for s in slots %}
+        <tr><td class="text-nowrap fw-semibold">{{ s.label() }}</td><td>{{ s.examiner.name }}</td><td>{{ s.venue or '—' }}</td>
+          <td>{{ seats(s) }}</td>
+          <td class="text-end">
+            {% if mine %}{% if mine.slot_id == s.id %}<span class="badge text-bg-primary">Your slot</span>{% endif %}
+            {% elif s.status == 'full' or s.available_seats == 0 %}<span class="badge text-bg-warning">Full</span>
+            {% elif can_book %}{{ post_button(url_for('student.book', slot_id=s.id), 'Book this slot', 'btn-primary btn-sm') }}
+            {% endif %}
+          </td></tr>
+      {% endfor %}</tbody></table></div>
+    {% else %}{{ empty('No upcoming slots have been published for this examination yet.') }}{% endif %}
+  </div></div>
+  <div class="col-lg-4"><div class="card"><div class="card-body">
+    <dl class="kv mb-0">
+      <dt>Booking window</dt><dd>{{ exam.booking_start|dt }} → {{ exam.booking_end|dt }}</dd>
+      <dt>Cancellation</dt><dd>Up to {{ exam.cancellation_hours }} hours before your slot</dd>
+      {% if exam.description %}<dt>Instructions</dt><dd>{{ exam.description }}</dd>{% endif %}
+      <dt>Assessment rubric</dt>
+      <dd><ul class="small ps-3 mb-0">{% for c in exam.criteria %}<li>{{ c.criterion_name }} — {{ c.maximum_marks }}</li>{% endfor %}</ul></dd>
+    </dl>
+  </div></div></div>
+</div>
+{% endblock %}

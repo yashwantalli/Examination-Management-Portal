@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, post_button, empty %}
+{% block title %}My bookings{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>My bookings</h1><div class="sub">Booking status, schedule and full history, including cancellations.</div></div>
+  <ul class="nav nav-pills small">
+    {% for key, label in [('', 'All'), ('booked','Upcoming'), ('completed','Completed'), ('cancelled','Cancelled')] %}
+    <li class="nav-item"><a class="nav-link py-1 {{ 'active' if status == key }}" href="{{ url_for('student.bookings', status=key or None) }}">{{ label }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+<div class="card">
+{% if rows %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>Booking</th><th>Examination</th><th>Slot</th><th>Examiner</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+    <tbody>{% for b in rows %}
+      <tr><td><a href="{{ url_for('student.booking_detail', booking_id=b.id) }}">#{{ b.id }}</a></td>
+        <td>{{ b.examination.name }}<div class="small text-body-secondary">{{ b.examination.course.course_code }}</div></td>
+        <td class="small text-nowrap">{{ b.slot.label() }}<div class="text-body-secondary">{{ b.slot.venue or '' }}</div></td>
+        <td>{{ b.slot.examiner.name }}</td>
+        <td>{{ badge(b.status) }}</td>
+        <td class="text-end text-nowrap">
+          {% if b.can_student_cancel %}{{ post_button(url_for('student.cancel', booking_id=b.id), 'Cancel', 'btn-outline-danger btn-sm') }}
+          {% elif b.status == 'booked' %}<span class="small text-body-secondary">cancellation closed</span>{% endif %}
+          {% if b.evaluation and b.evaluation.published_at %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('student.result_detail', booking_id=b.id) }}">Result</a>{% endif %}
+        </td></tr>
+    {% endfor %}</tbody></table></div>
+{% else %}{{ empty('No bookings here yet.') }}{% endif %}
+</div>
+{% endblock %}
