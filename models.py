@@ -3,6 +3,7 @@
 All tables are created programmatically by ``db.create_all()`` (see app.py).
 SQLite foreign-key enforcement is switched on for every connection.
 """
+import sqlite3
 from datetime import datetime, timedelta
 
 from flask_login import UserMixin
@@ -17,6 +18,9 @@ db = SQLAlchemy()
 
 @event.listens_for(Engine, "connect")
 def _enable_sqlite_fk(dbapi_connection, connection_record):  # pragma: no cover - driver hook
+    # Only SQLite understands PRAGMA; running it on PostgreSQL is a syntax error.
+    if not isinstance(dbapi_connection, sqlite3.Connection):
+        return
     cursor = dbapi_connection.cursor()
     try:
         cursor.execute("PRAGMA foreign_keys=ON")
@@ -325,8 +329,11 @@ class Booking(db.Model):
     __table_args__ = (
         CheckConstraint("status IN ('booked','cancelled','completed')", name="ck_booking_status"),
         # A student may hold at most ONE active (booked/completed) booking per examination.
+        # Both dialect options are required: without postgresql_where the index would be a plain
+        # unique index on PostgreSQL and a student could never re-book after cancelling.
         Index("uq_active_booking_per_exam", "student_id", "examination_id", unique=True,
-              sqlite_where=text("status IN ('booked','completed')")),
+              sqlite_where=text("status IN ('booked','completed')"),
+              postgresql_where=text("status IN ('booked','completed')")),
     )
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
