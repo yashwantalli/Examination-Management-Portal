@@ -34,9 +34,15 @@ def test_development_config_is_not_validated():
     validate_config({"IS_PRODUCTION": False, "SECRET_KEY": config.DEV_SECRET})
 
 
-def test_legacy_postgres_scheme_is_rewritten(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgres://u:p@h:5432/db")
-    assert config._database_uri() == "postgresql://u:p@h:5432/db"
+@pytest.mark.parametrize("scheme", ["postgres", "postgresql"])
+def test_postgres_urls_use_the_psycopg3_driver(monkeypatch, scheme):
+    monkeypatch.setenv("DATABASE_URL", f"{scheme}://u:p@h:5432/db")
+    assert config._database_uri() == "postgresql+psycopg://u:p@h:5432/db"
+
+
+def test_explicit_driver_and_sqlite_urls_are_left_alone():
+    assert config.normalize_database_uri("postgresql+psycopg://u@h/db") == "postgresql+psycopg://u@h/db"
+    assert config.normalize_database_uri("sqlite:///x.db") == "sqlite:///x.db"
 
 
 def test_local_now_follows_configured_timezone():

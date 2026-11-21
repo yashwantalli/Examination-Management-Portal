@@ -4,10 +4,11 @@ Authentication uses the same Flask-Login session as the web UI. Obtain the sessi
 cookie with POST /api/v1/auth/login, then call the other endpoints with it.
 Write requests must use Content-Type: application/json.
 """
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user, login_user, logout_user
 from sqlalchemy import or_
 
+from extensions import LOGIN_LIMIT, limiter
 from models import Booking, Course, ExaminerProfile, Examination, Slot, StudentProfile, User, db
 from routes import role_required
 from routes.admin import dashboard_stats
@@ -27,11 +28,13 @@ def _404(what="Resource"):
 
 # ------------------------------------------------------------------ auth
 @bp.post("/auth/login")
+@limiter.limit(LOGIN_LIMIT)
 def api_login():
     data = request.get_json(silent=True) or {}
     email = str(data.get("email", "")).strip().lower()
     user = User.query.filter_by(email=email).first()
     if not user or not user.check_password(str(data.get("password", ""))):
+        current_app.logger.warning("Failed API login for %r from %s", email, request.remote_addr)
         return jsonify(error="Invalid email or password."), 401
     if not user.is_active:
         return jsonify(error="Account is deactivated."), 403

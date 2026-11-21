@@ -5,3 +5,7 @@ SQLAlchemy>=2.0,<3
 Werkzeug>=3.0,<4
 reportlab>=4.0,<6
 tzdata
+psycopg[binary]>=3.1,<4
+Flask-Migrate>=4.0,<5
+Flask-Limiter>=3.5,<4
+gunicorn>=22,<24; sys_platform != "win32"

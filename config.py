@@ -24,9 +24,18 @@ def _database_uri():
     uri = os.environ.get("DATABASE_URL") or os.environ.get("EMP_DATABASE_URI")
     if not uri:
         return "sqlite:///" + os.path.join(INSTANCE_DIR, "emp.sqlite3")
-    # Some hosts (Heroku, older Render) still hand out the legacy scheme.
-    if uri.startswith("postgres://"):
-        uri = "postgresql://" + uri[len("postgres://"):]
+    return normalize_database_uri(uri)
+
+
+def normalize_database_uri(uri):
+    """Point every PostgreSQL URL at the psycopg 3 driver.
+
+    Hosts hand out ``postgres://`` or ``postgresql://``; SQLAlchemy would pick the
+    older psycopg2 driver for both, which this project does not install.
+    """
+    for prefix in ("postgres://", "postgresql://"):
+        if uri.startswith(prefix):
+            return "postgresql+psycopg://" + uri[len(prefix):]
     return uri
 
 
@@ -40,6 +49,10 @@ class Config:
     SQLALCHEMY_ENGINE_OPTIONS = {"pool_pre_ping": True}
 
     TIMEZONE = os.environ.get("EMP_TIMEZONE", "Asia/Kolkata")
+    LOG_LEVEL = os.environ.get("EMP_LOG_LEVEL", "INFO").upper()
+
+    # Development builds tables itself; production uses `flask db upgrade` migrations.
+    AUTO_CREATE_TABLES = os.environ.get("EMP_AUTO_CREATE_TABLES", "0" if IS_PRODUCTION else "1") == "1"
 
     # Admin account seeded programmatically on first start (no public admin sign-up).
     ADMIN_EMAIL = os.environ.get("EMP_ADMIN_EMAIL", "admin@emp.local")
@@ -57,16 +70,31 @@ class Config:
 
     CSRF_ENABLED = True
 
+    # Rate limiting. memory:// is per worker process (fine for one small instance); point
+    # EMP_RATELIMIT_STORAGE_URI at Redis (redis://...) to share counters across workers/instances.
+    RATELIMIT_ENABLED = os.environ.get("EMP_RATELIMIT_ENABLED", "1") == "1"
+    RATELIMIT_STORAGE_URI = os.environ.get("EMP_RATELIMIT_STORAGE_URI", "memory://")
+    RATELIMIT_HEADERS_ENABLED = True
+
     # Cookies: only sent over HTTPS in production, never readable by JavaScript.
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = IS_PRODUCTION
+    # EMP_COOKIE_SECURE=0 is for running the production stack over plain http://localhost.
+    SESSION_COOKIE_SECURE = os.environ.get("EMP_COOKIE_SECURE", "1" if IS_PRODUCTION else "0") == "1"
+
+    # Set EMP_TRUST_PROXY=1 behind a reverse proxy (Render, Railway, nginx) so the app sees
+    # the real client IP and https scheme from X-Forwarded-* headers. Never set it without one.
+    TRUST_PROXY = os.environ.get("EMP_TRUST_PROXY", "0") == "1"
 
 
 class TestConfig(Config):
     TESTING = True
     IS_PRODUCTION = False
-    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+    AUTO_CREATE_TABLES = True
+    RATELIMIT_ENABLED = False  # tests that need it switch it on explicitly
+    # Set TEST_DATABASE_URL to run the whole suite against PostgreSQL instead of SQLite.
+    SQLALCHEMY_DATABASE_URI = normalize_database_uri(
+        os.environ.get("TEST_DATABASE_URL", "sqlite:///:memory:"))
     SQLALCHEMY_ENGINE_OPTIONS = {}
     CSRF_ENABLED = False
     MAIL_SERVER = ""

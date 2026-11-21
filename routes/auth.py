@@ -1,9 +1,10 @@
 """Registration, login, logout and profile editing."""
 import re
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
+from extensions import LOGIN_LIMIT, REGISTER_LIMIT, limiter
 from models import ExaminerProfile, Notification, StudentProfile, User, db
 
 bp = Blueprint("auth", __name__)
@@ -22,6 +23,7 @@ def _safe_next(target):
 
 
 @bp.route("/login", methods=["GET", "POST"])
+@limiter.limit(LOGIN_LIMIT, methods=["POST"])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("index"))
@@ -30,12 +32,14 @@ def login():
         password = request.form.get("password", "")
         user = User.query.filter_by(email=email).first()
         if not user or not user.check_password(password):
+            current_app.logger.warning("Failed login for %r from %s", email, request.remote_addr)
             flash("Invalid email or password.", "danger")
             return render_template("auth/login.html", email=email), 401
         if not user.is_active:
             flash("This account has been deactivated. Contact the administrator.", "danger")
             return render_template("auth/login.html", email=email), 403
         login_user(user)
+        current_app.logger.info("Login: user %s (%s)", user.id, user.role)
         flash(f"Welcome back, {user.name}!", "success")
         nxt = _safe_next(request.args.get("next"))
         return redirect(nxt or url_for(f"{user.role}.dashboard"))
@@ -51,6 +55,7 @@ def logout():
 
 
 @bp.route("/register", methods=["GET", "POST"])
+@limiter.limit(REGISTER_LIMIT, methods=["POST"])
 def register():
     """Public registration — only Student or Examiner. Admin sign-up is not offered."""
     if current_user.is_authenticated:

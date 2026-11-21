@@ -4,17 +4,26 @@ Run with:  python app.py         (or:  flask --app app run)
 The SQLite database and all tables are created automatically on start-up and
 the Admin account is seeded from configuration (see config.py / README.md).
 """
+import logging
 import os
 import secrets
+import sys
 
 import click
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, current_user
+from flask_migrate import Migrate
+from werkzeug.middleware.proxy_fix import ProxyFix
+from sqlalchemy import inspect, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import IntegrityError
 
-from config import INSTANCE_DIR, Config, validate_config
+from config import BASE_DIR, INSTANCE_DIR, Config, validate_config
+from extensions import limiter
 from models import User, db
 
 login_manager = LoginManager()
+migrate = Migrate()
 login_manager.login_view = "auth.login"
 login_manager.login_message_category = "warning"
 
@@ -40,6 +49,8 @@ def create_app(config_object=Config):
     os.makedirs(app.instance_path, exist_ok=True)
 
     db.init_app(app)
+    migrate.init_app(app, db, directory=os.path.join(BASE_DIR, "migrations"))
+    limiter.init_app(app)
     login_manager.init_app(app)
 
     from routes.admin import bp as admin_bp
@@ -51,13 +62,28 @@ def create_app(config_object=Config):
     for bp in (auth_bp, admin_bp, examiner_bp, student_bp, api_bp):
         app.register_blueprint(bp)
 
+    if app.config.get("TRUST_PROXY"):
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
+    _configure_logging(app)
     _register_csrf(app)
+    _register_security_headers(app)
     _register_template_helpers(app)
     _register_errors(app)
     _register_cli(app)
 
     with app.app_context():
         init_database(app)
+
+    @app.route("/health")
+    def health():
+        """Liveness + database check for the hosting platform. Reveals nothing sensitive."""
+        try:
+            db.session.execute(text("SELECT 1"))
+        except Exception:  # any failure means "not healthy"; details go to the log only
+            app.logger.exception("Health check failed")
+            return jsonify(status="error"), 503
+        return jsonify(status="ok"), 200
 
     @app.route("/")
     def index():
@@ -70,15 +96,33 @@ def create_app(config_object=Config):
 
 # --------------------------------------------------------------------------- database
 def init_database(app):
-    """Create every table programmatically and make sure the Admin superuser exists."""
-    db.create_all()
+    """Prepare the database at start-up.
+
+    Development and tests build tables with ``create_all()``. Production builds them with
+    ``flask db upgrade`` (Alembic migrations) and sets EMP_AUTO_CREATE_TABLES=0, so the schema
+    is always versioned and reproducible.
+    """
+    if app.config["AUTO_CREATE_TABLES"]:
+        db.create_all()
+    ensure_admin(app)
+
+
+def ensure_admin(app):
+    """Seed the Admin superuser if none exists. Safe to run from several workers at once."""
+    if not inspect(db.engine).has_table(User.__tablename__):
+        app.logger.warning("Database tables are missing. Run `flask db upgrade` first.")
+        return
     email = app.config["ADMIN_EMAIL"].strip().lower()
-    if not User.query.filter_by(role="admin").first():
-        admin = User(name=app.config["ADMIN_NAME"], email=email, role="admin", is_active=True)
-        admin.set_password(app.config["ADMIN_PASSWORD"])
-        db.session.add(admin)
+    if User.query.filter_by(role="admin").first():
+        return
+    admin = User(name=app.config["ADMIN_NAME"], email=email, role="admin", is_active=True)
+    admin.set_password(app.config["ADMIN_PASSWORD"])
+    db.session.add(admin)
+    try:
         db.session.commit()
         app.logger.info("Admin account created: %s", email)
+    except IntegrityError:  # another worker created it first
+        db.session.rollback()
 
 
 # --------------------------------------------------------------------------- CSRF
@@ -107,6 +151,46 @@ def _register_csrf(app):
         token = request.form.get("_csrf")
         if not token or token != session.get("_csrf"):
             abort(400, description="Your form expired. Please go back, refresh and try again.")
+
+
+# --------------------------------------------------------------------------- logging
+def _configure_logging(app):
+    """Send application logs to stdout, where Docker and hosting platforms collect them."""
+    if app.config.get("TESTING"):
+        return
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    app.logger.handlers = [handler]
+    app.logger.setLevel(app.config["LOG_LEVEL"])
+    app.logger.propagate = False
+
+
+# --------------------------------------------------------------------------- security headers
+CONTENT_SECURITY_POLICY = "; ".join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",   # a few templates use style="..." attributes
+    "img-src 'self' data:",               # Bootstrap embeds small SVG icons as data: URIs
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+
+
+def _register_security_headers(app):
+    @app.after_request
+    def _headers(response):
+        h = response.headers
+        h.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        h.setdefault("X-Content-Type-Options", "nosniff")
+        h.setdefault("X-Frame-Options", "DENY")
+        h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        if request.is_secure:  # HSTS is only meaningful (and only honoured) over https
+            h.setdefault("Strict-Transport-Security", "max-age=31536000")
+        return response
 
 
 # --------------------------------------------------------------------------- templates
@@ -139,6 +223,10 @@ def _register_errors(app):
     def _403(e):
         return _render(403, "Access denied", "You do not have permission to open this page.")
 
+    @app.errorhandler(429)
+    def _429(e):
+        return _render(429, "Too many attempts", "Too many attempts. Please wait a minute and try again.")
+
     @app.errorhandler(404)
     def _404(e):
         return _render(404, "Not found", "The page or record you requested does not exist.")
@@ -148,9 +236,10 @@ def _register_errors(app):
 def _register_cli(app):
     @app.cli.command("init-db")
     def init_db_cmd():
-        """Create tables and seed the admin account."""
+        """Create tables (development only) and seed the admin account."""
         init_database(app)
-        click.echo("Database ready at " + app.config["SQLALCHEMY_DATABASE_URI"])
+        shown = make_url(app.config["SQLALCHEMY_DATABASE_URI"]).render_as_string(hide_password=True)
+        click.echo("Database ready at " + shown)
 
     @app.cli.command("seed-demo")
     @click.option("--reset", is_flag=True, help="Drop all tables first.")
