@@ -12,6 +12,7 @@ from flask import Flask, abort, jsonify, redirect, render_template, request, ses
 from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
 from sqlalchemy import inspect
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
 from config import BASE_DIR, INSTANCE_DIR, Config, validate_config
@@ -173,7 +174,8 @@ def _register_cli(app):
     def init_db_cmd():
         """Create tables (development only) and seed the admin account."""
         init_database(app)
-        click.echo("Database ready at " + app.config["SQLALCHEMY_DATABASE_URI"])
+        shown = make_url(app.config["SQLALCHEMY_DATABASE_URI"]).render_as_string(hide_password=True)
+        click.echo("Database ready at " + shown)
 
     @app.cli.command("seed-demo")
     @click.option("--reset", is_flag=True, help="Drop all tables first.")
