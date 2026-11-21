@@ -1,6 +1,6 @@
 # Examination Management Portal (EMP)
 
-[![CI](https://github.com/yashwantalli/empp/actions/workflows/ci.yml/badge.svg)](https://github.com/yashwantalli/empp/actions/workflows/ci.yml)
+[![CI](https://github.com/yashwantalli/Examination-Management-Portal/actions/workflows/ci.yml/badge.svg)](https://github.com/yashwantalli/Examination-Management-Portal/actions/workflows/ci.yml)
 
 A role-based portal for scheduling and evaluating viva/practical examinations, built with
 **Flask, SQLAlchemy, Flask-Login and Bootstrap 5**. Admins set up courses, exams and rubrics;
@@ -28,8 +28,8 @@ examiners publish slots and score students; students book slots and see publishe
 ## Run locally
 
 ```bash
-git clone https://github.com/yashwantalli/empp.git
-cd empp
+git clone https://github.com/yashwantalli/Examination-Management-Portal.git
+cd Examination-Management-Portal
 python3 -m venv venv && source venv/bin/activate     # Windows: venv\Scripts\activate
 pip install -r requirements-dev.txt
 cp .env.example .env                                   # optional; defaults work for development
