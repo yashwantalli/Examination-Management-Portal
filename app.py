@@ -10,11 +10,15 @@ import secrets
 import click
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, current_user
+from flask_migrate import Migrate
+from sqlalchemy import inspect
+from sqlalchemy.exc import IntegrityError
 
-from config import INSTANCE_DIR, Config, validate_config
+from config import BASE_DIR, INSTANCE_DIR, Config, validate_config
 from models import User, db
 
 login_manager = LoginManager()
+migrate = Migrate()
 login_manager.login_view = "auth.login"
 login_manager.login_message_category = "warning"
 
@@ -40,6 +44,7 @@ def create_app(config_object=Config):
     os.makedirs(app.instance_path, exist_ok=True)
 
     db.init_app(app)
+    migrate.init_app(app, db, directory=os.path.join(BASE_DIR, "migrations"))
     login_manager.init_app(app)
 
     from routes.admin import bp as admin_bp
@@ -70,15 +75,33 @@ def create_app(config_object=Config):
 
 # --------------------------------------------------------------------------- database
 def init_database(app):
-    """Create every table programmatically and make sure the Admin superuser exists."""
-    db.create_all()
+    """Prepare the database at start-up.
+
+    Development and tests build tables with ``create_all()``. Production builds them with
+    ``flask db upgrade`` (Alembic migrations) and sets EMP_AUTO_CREATE_TABLES=0, so the schema
+    is always versioned and reproducible.
+    """
+    if app.config["AUTO_CREATE_TABLES"]:
+        db.create_all()
+    ensure_admin(app)
+
+
+def ensure_admin(app):
+    """Seed the Admin superuser if none exists. Safe to run from several workers at once."""
+    if not inspect(db.engine).has_table(User.__tablename__):
+        app.logger.warning("Database tables are missing. Run `flask db upgrade` first.")
+        return
     email = app.config["ADMIN_EMAIL"].strip().lower()
-    if not User.query.filter_by(role="admin").first():
-        admin = User(name=app.config["ADMIN_NAME"], email=email, role="admin", is_active=True)
-        admin.set_password(app.config["ADMIN_PASSWORD"])
-        db.session.add(admin)
+    if User.query.filter_by(role="admin").first():
+        return
+    admin = User(name=app.config["ADMIN_NAME"], email=email, role="admin", is_active=True)
+    admin.set_password(app.config["ADMIN_PASSWORD"])
+    db.session.add(admin)
+    try:
         db.session.commit()
         app.logger.info("Admin account created: %s", email)
+    except IntegrityError:  # another worker created it first
+        db.session.rollback()
 
 
 # --------------------------------------------------------------------------- CSRF
@@ -148,7 +171,7 @@ def _register_errors(app):
 def _register_cli(app):
     @app.cli.command("init-db")
     def init_db_cmd():
-        """Create tables and seed the admin account."""
+        """Create tables (development only) and seed the admin account."""
         init_database(app)
         click.echo("Database ready at " + app.config["SQLALCHEMY_DATABASE_URI"])
 

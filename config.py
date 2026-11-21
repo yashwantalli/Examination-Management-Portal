@@ -50,6 +50,9 @@ class Config:
 
     TIMEZONE = os.environ.get("EMP_TIMEZONE", "Asia/Kolkata")
 
+    # Development builds tables itself; production uses `flask db upgrade` migrations.
+    AUTO_CREATE_TABLES = os.environ.get("EMP_AUTO_CREATE_TABLES", "0" if IS_PRODUCTION else "1") == "1"
+
     # Admin account seeded programmatically on first start (no public admin sign-up).
     ADMIN_EMAIL = os.environ.get("EMP_ADMIN_EMAIL", "admin@emp.local")
     ADMIN_PASSWORD = os.environ.get("EMP_ADMIN_PASSWORD", DEV_ADMIN_PASSWORD)
@@ -75,6 +78,7 @@ class Config:
 class TestConfig(Config):
     TESTING = True
     IS_PRODUCTION = False
+    AUTO_CREATE_TABLES = True
     # Set TEST_DATABASE_URL to run the whole suite against PostgreSQL instead of SQLite.
     SQLALCHEMY_DATABASE_URI = normalize_database_uri(
         os.environ.get("TEST_DATABASE_URL", "sqlite:///:memory:"))
