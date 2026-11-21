@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, post_button, empty %}
+{% block title %}Students{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Students</h1><div class="sub">Search by name, email, student ID or user ID.</div></div></div>
+<form class="d-flex gap-2 mb-3" method="get">
+  <input class="form-control" name="q" value="{{ q }}" placeholder="Search students">
+  <button class="btn btn-outline-secondary">Search</button>
+</form>
+<div class="card">
+{% if users %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>ID</th><th>Name</th><th>Student ID</th><th>Programme</th><th>Bookings</th><th>Status</th><th class="text-end"></th></tr></thead>
+    <tbody>{% for u in users %}
+      <tr>
+        <td class="text-body-secondary">{{ u.id }}</td>
+        <td><a href="{{ url_for('admin.user_detail', user_id=u.id) }}" class="fw-semibold">{{ u.name }}</a><div class="small text-body-secondary">{{ u.email }}</div></td>
+        <td class="mono">{{ u.student_profile.student_number }}</td>
+        <td>{{ u.student_profile.program or '—' }}</td>
+        <td><a href="{{ url_for('admin.bookings', student_id=u.id) }}">view</a></td>
+        <td>{{ badge('active' if u.is_active else 'deactivated') }}</td>
+        <td class="text-end">{{ post_button(url_for('admin.user_toggle', user_id=u.id), 'Deactivate' if u.is_active else 'Activate', 'btn-outline-secondary btn-sm') }}</td>
+      </tr>
+    {% endfor %}</tbody></table></div>
+{% else %}{{ empty('No students found.') }}{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Edit criterion{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Edit rubric criterion</h1><div class="sub">{{ exam.name }} · rubric total {{ exam.rubric_total }}/{{ exam.maximum_marks }}</div></div></div>
+<div class="card" style="max-width: 620px"><div class="card-body p-4">
+  <form method="post">
+    {{ csrf() }}
+    <div class="mb-3"><label class="form-label" for="criterion_name">Criterion</label>
+      <input class="form-control" id="criterion_name" name="criterion_name" value="{{ crit.criterion_name }}" required maxlength="120"></div>
+    <div class="row g-3 mb-3">
+      <div class="col"><label class="form-label" for="maximum_marks">Maximum marks</label>
+        <input type="number" class="form-control" id="maximum_marks" name="maximum_marks" min="1" value="{{ crit.maximum_marks }}" required></div>
+      <div class="col"><label class="form-label" for="weightage">Weightage %</label>
+        <input type="number" class="form-control" id="weightage" name="weightage" min="0" max="100" value="{{ crit.weightage }}" required></div>
+    </div>
+    <div class="mb-3"><label class="form-label" for="description">Description</label>
+      <input class="form-control" id="description" name="description" value="{{ crit.description or '' }}" maxlength="300"></div>
+    <button class="btn btn-primary">Save</button>
+    <a class="btn btn-link" href="{{ url_for('admin.exam_detail', exam_id=exam.id) }}#rubric">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

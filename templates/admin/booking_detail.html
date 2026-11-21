@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge %}
+{% block title %}Booking #{{ booking.id }}{% endblock %}
+{% block content %}
+{% set b = booking %}
+<div class="page-head"><div>
+  <div class="small text-body-secondary"><a href="{{ url_for('admin.bookings') }}">Bookings</a> / #{{ b.id }}</div>
+  <h1>Booking #{{ b.id }} {{ badge(b.status) }}</h1>
+  <div class="sub"><a href="{{ url_for('admin.user_detail', user_id=b.student_id) }}">{{ b.student.name }}</a> ({{ b.student.student_profile.student_number }}) · <a href="{{ url_for('admin.exam_detail', exam_id=b.examination_id) }}">{{ b.examination.name }}</a></div>
+</div></div>
+<div class="row g-3">
+  <div class="col-lg-4"><div class="card h-100"><div class="card-body">
+    <dl class="kv mb-0">
+      <dt>Slot</dt><dd><a href="{{ url_for('admin.slot_detail', slot_id=b.slot_id) }}">{{ b.slot.label() }}</a></dd>
+      <dt>Examiner</dt><dd>{{ b.slot.examiner.name }}</dd>
+      <dt>Venue</dt><dd>{{ b.slot.venue or '—' }}</dd>
+      <dt>Booked at</dt><dd>{{ b.booked_at|dt }}</dd>
+      <dt>Student cancellation deadline</dt><dd>{{ b.slot.cancellation_deadline|dt }}</dd>
+      {% if b.cancelled_at %}<dt>Cancelled</dt><dd>{{ b.cancelled_at|dt }} — {{ b.cancel_reason }}</dd>{% endif %}
+      <dt>Times rescheduled</dt><dd>{{ b.reschedule_count }}</dd>
+      {% if b.evaluation %}<dt>Marks</dt><dd>{{ b.evaluation.total_marks|marks }}/{{ b.examination.maximum_marks }} {{ badge(b.evaluation.status) }}</dd>{% endif %}
+    </dl>
+  </div></div></div>
+
+  <div class="col-lg-4"><div class="card h-100">
+    <div class="card-header">Admin actions</div>
+    <div class="card-body">
+    {% if b.status == 'booked' and not b.evaluation %}
+      <form method="post" action="{{ url_for('admin.booking_reschedule', booking_id=b.id) }}" class="mb-4">
+        {{ csrf() }}
+        <label class="form-label small fw-semibold" for="slot_id">Reschedule to another slot</label>
+        {% if targets %}
+        <select class="form-select mb-2" id="slot_id" name="slot_id" required>
+          {% for s in targets %}<option value="{{ s.id }}">{{ s.label() }} · {{ s.examiner.name }} · {{ s.available_seats }} free</option>{% endfor %}
+        </select>
+        <input class="form-control mb-2" name="note" placeholder="Note for the student (optional)" maxlength="200">
+        <button class="btn btn-primary w-100">Reschedule booking</button>
+        {% else %}<div class="small text-body-secondary">No other future slot with free seats.</div>{% endif %}
+      </form>
+      <form method="post" action="{{ url_for('admin.booking_cancel', booking_id=b.id) }}">
+        {{ csrf() }}
+        <label class="form-label small fw-semibold" for="reason">Cancel booking</label>
+        <input class="form-control mb-2" id="reason" name="reason" placeholder="Reason" maxlength="200">
+        <button class="btn btn-outline-danger w-100">Cancel and release seat</button>
+      </form>
+    {% else %}
+      <p class="small text-body-secondary mb-0">This booking is {{ b.status }}{{ ' and evaluated' if b.evaluation }}; it can no longer be moved or cancelled.</p>
+    {% endif %}
+    </div>
+  </div></div>
+
+  <div class="col-lg-4"><div class="card h-100">
+    <div class="card-header">History</div>
+    <div class="card-body"><ul class="timeline-list">
+      {% for e in b.events %}
+      <li><div class="small">{{ badge(e.action) }}{% if e.actor %} by {{ e.actor.name }}{% endif %}</div>
+        {% if e.action == 'rescheduled' %}<div class="small">{{ e.from_slot.label() }} → {{ e.to_slot.label() }}</div>{% endif %}
+        {% if e.note %}<div class="small">{{ e.note }}</div>{% endif %}
+        <div class="small text-body-secondary">{{ e.created_at|dt }}</div></li>
+      {% endfor %}
+    </ul></div>
+  </div></div>
+</div>
+{% endblock %}

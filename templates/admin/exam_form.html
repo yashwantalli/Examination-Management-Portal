@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}{{ 'Edit' if exam.id else 'New' }} examination{% endblock %}
+{% macro fv(field, default) %}{{ request.form.get(field, '') if request.method == 'POST' else (default if default is not none else '') }}{% endmacro %}
+{% macro dtval(field, v) %}{{ request.form.get(field, '') if request.method == 'POST' else (v.strftime('%Y-%m-%dT%H:%M') if v else '') }}{% endmacro %}
+{% block content %}
+<div class="page-head"><div><h1>{{ 'Edit examination' if exam.id else 'New examination' }}</h1>
+  <div class="sub">Students can only book inside the booking window; examiners can only create slots inside the slot-creation window.</div></div></div>
+{% if not courses %}<div class="alert alert-warning">Create a course first. <a href="{{ url_for('admin.courses') }}">Go to courses</a></div>{% endif %}
+<form method="post" class="card"><div class="card-body p-4">
+  {{ csrf() }}
+  <div class="row g-3">
+    <div class="col-md-6"><label class="form-label" for="name">Examination name</label>
+      <input class="form-control" id="name" name="name" value="{{ fv('name', exam.name) }}" required minlength="3" maxlength="150"></div>
+    <div class="col-md-3"><label class="form-label" for="course_id">Course</label>
+      <select class="form-select" id="course_id" name="course_id" required>
+        <option value="">Choose…</option>
+        {% for c in courses %}<option value="{{ c.id }}" {{ 'selected' if (request.form.get('course_id')|int == c.id if request.method == 'POST' else c.id == exam.course_id) }}>{{ c.course_code }} – {{ c.name }}</option>{% endfor %}
+      </select></div>
+    <div class="col-md-3"><label class="form-label" for="exam_type">Type</label>
+      <select class="form-select" id="exam_type" name="exam_type">{% for t in types %}<option {{ 'selected' if t == (request.form.get('exam_type') if request.method == 'POST' else exam.exam_type) }}>{{ t }}</option>{% endfor %}</select></div>
+    <div class="col-12"><label class="form-label" for="description">Description / instructions</label>
+      <textarea class="form-control" id="description" name="description" rows="2">{{ fv('description', exam.description) }}</textarea></div>
+    <div class="col-6 col-md-3"><label class="form-label" for="duration_minutes">Duration (min)</label>
+      <input type="number" class="form-control" id="duration_minutes" name="duration_minutes" min="5" max="600" value="{{ fv('duration_minutes', exam.duration_minutes) }}" required></div>
+    <div class="col-6 col-md-3"><label class="form-label" for="maximum_marks">Maximum marks</label>
+      <input type="number" class="form-control" id="maximum_marks" name="maximum_marks" min="1" max="1000" value="{{ fv('maximum_marks', exam.maximum_marks) }}" required></div>
+    <div class="col-6 col-md-3"><label class="form-label" for="passing_marks">Passing marks</label>
+      <input type="number" class="form-control" id="passing_marks" name="passing_marks" min="0" max="1000" value="{{ fv('passing_marks', exam.passing_marks) }}" required></div>
+    <div class="col-6 col-md-3"><label class="form-label" for="cancellation_hours">Cancel deadline (h before slot)</label>
+      <input type="number" class="form-control" id="cancellation_hours" name="cancellation_hours" min="0" max="720" value="{{ fv('cancellation_hours', exam.cancellation_hours) }}" required></div>
+  </div>
+  <h2 class="h6 mt-4 mb-3">Timeline</h2>
+  <div class="row g-3">
+    <div class="col-md-3"><label class="form-label" for="slot_creation_start">Slot creation opens</label>
+      <input type="datetime-local" class="form-control" id="slot_creation_start" name="slot_creation_start" value="{{ dtval('slot_creation_start', exam.slot_creation_start) }}" required></div>
+    <div class="col-md-3"><label class="form-label" for="slot_creation_end">Slot creation closes</label>
+      <input type="datetime-local" class="form-control" id="slot_creation_end" name="slot_creation_end" value="{{ dtval('slot_creation_end', exam.slot_creation_end) }}" required></div>
+    <div class="col-md-3"><label class="form-label" for="booking_start">Booking opens</label>
+      <input type="datetime-local" class="form-control" id="booking_start" name="booking_start" value="{{ dtval('booking_start', exam.booking_start) }}" required></div>
+    <div class="col-md-3"><label class="form-label" for="booking_end">Booking closes</label>
+      <input type="datetime-local" class="form-control" id="booking_end" name="booking_end" value="{{ dtval('booking_end', exam.booking_end) }}" required></div>
+    <div class="col-md-4"><div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" role="switch" id="slot_creation_open" name="slot_creation_open" value="1" {{ 'checked' if (request.form.get('slot_creation_open') if request.method == 'POST' else exam.slot_creation_open) }}>
+      <label class="form-check-label" for="slot_creation_open">Slot creation switch on</label></div></div>
+    <div class="col-md-4"><div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" role="switch" id="booking_open" name="booking_open" value="1" {{ 'checked' if (request.form.get('booking_open') if request.method == 'POST' else exam.booking_open) }}>
+      <label class="form-check-label" for="booking_open">Student booking switch on</label></div></div>
+    <div class="col-md-4"><label class="form-label" for="status">Status</label>
+      <select class="form-select" id="status" name="status">{% for s in ['active','draft','inactive','completed'] %}<option value="{{ s }}" {{ 'selected' if s == (request.form.get('status') if request.method == 'POST' else exam.status) }}>{{ s|capitalize }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="mt-4">
+    <button class="btn btn-primary">{{ 'Save changes' if exam.id else 'Create examination' }}</button>
+    <a class="btn btn-link" href="{{ url_for('admin.exam_detail', exam_id=exam.id) if exam.id else url_for('admin.exams') }}">Cancel</a>
+  </div>
+</div></form>
+{% endblock %}

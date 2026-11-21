@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block title %}Search{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Search</h1><div class="sub">Find students, examiners, examinations and bookings by name or ID.</div></div></div>
+<form class="d-flex gap-2 mb-4" method="get">
+  <input class="form-control" name="q" value="{{ q }}" placeholder="e.g. Diya, SE22UCSE014, DBMS, 12" autofocus>
+  <button class="btn btn-primary">Search</button>
+</form>
+{% if q %}
+<div class="row g-3">
+  {% macro section(title, items) %}
+  <div class="col-lg-6"><div class="card h-100"><div class="card-header">{{ title }} <span class="text-body-secondary fw-normal">({{ items|length }})</span></div>
+    <ul class="list-group list-group-flush">{{ caller() }}</ul></div></div>
+  {% endmacro %}
+  {% call section('Students', results.students) %}
+    {% for u in results.students %}<li class="list-group-item"><a href="{{ url_for('admin.user_detail', user_id=u.id) }}">{{ u.name }}</a> <span class="small text-body-secondary">#{{ u.id }} · {{ u.student_profile.student_number }} · {{ u.email }}</span></li>
+    {% else %}<li class="list-group-item small text-body-secondary">No matches</li>{% endfor %}
+  {% endcall %}
+  {% call section('Examiners', results.examiners) %}
+    {% for u in results.examiners %}<li class="list-group-item"><a href="{{ url_for('admin.user_detail', user_id=u.id) }}">{{ u.name }}</a> <span class="small text-body-secondary">#{{ u.id }} · {{ u.email }}</span> {{ badge(u.examiner_profile.approval_status) }}</li>
+    {% else %}<li class="list-group-item small text-body-secondary">No matches</li>{% endfor %}
+  {% endcall %}
+  {% call section('Examinations', results.exams) %}
+    {% for e in results.exams %}<li class="list-group-item"><a href="{{ url_for('admin.exam_detail', exam_id=e.id) }}">{{ e.name }}</a> <span class="small text-body-secondary">#{{ e.id }} · {{ e.course.course_code }}</span> {{ badge(e.status) }}</li>
+    {% else %}<li class="list-group-item small text-body-secondary">No matches</li>{% endfor %}
+  {% endcall %}
+  {% call section('Bookings', results.bookings) %}
+    {% for b in results.bookings %}<li class="list-group-item"><a href="{{ url_for('admin.booking_detail', booking_id=b.id) }}">#{{ b.id }}</a> {{ b.student.name }} · {{ b.examination.name }} {{ badge(b.status) }}</li>
+    {% else %}<li class="list-group-item small text-body-secondary">No matches</li>{% endfor %}
+  {% endcall %}
+</div>
+{% endif %}
+{% endblock %}

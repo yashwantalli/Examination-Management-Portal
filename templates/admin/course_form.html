@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Edit course{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Edit course</h1><div class="sub">{{ course.course_code }} · {{ course.name }}</div></div></div>
+<div class="card" style="max-width: 640px"><div class="card-body p-4">
+  <form method="post">
+    {{ csrf() }}
+    <div class="mb-3"><label class="form-label" for="course_code">Course code</label>
+      <input class="form-control text-uppercase" id="course_code" name="course_code" value="{{ course.course_code }}" required maxlength="20"></div>
+    <div class="mb-3"><label class="form-label" for="name">Name</label>
+      <input class="form-control" id="name" name="name" value="{{ course.name }}" required maxlength="150"></div>
+    <div class="mb-3"><label class="form-label" for="description">Description</label>
+      <textarea class="form-control" id="description" name="description" rows="3">{{ course.description or '' }}</textarea></div>
+    <button class="btn btn-primary">Save</button>
+    <a class="btn btn-link" href="{{ url_for('admin.courses') }}">Cancel</a>
+  </form>
+</div></div>
+{% endblock %}

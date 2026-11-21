@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge, post_button, empty %}
+{% block title %}Courses{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Courses</h1><div class="sub">Courses group examinations. A course with examinations can be deactivated but not deleted.</div></div></div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <form class="mb-3 d-flex gap-2" method="get">
+      <input class="form-control" name="q" value="{{ q }}" placeholder="Search by code or name">
+      <button class="btn btn-outline-secondary">Search</button>
+    </form>
+    <div class="card">
+    {% if courses %}
+      <div class="table-responsive"><table class="table table-hover">
+        <thead><tr><th>Code</th><th>Name</th><th>Exams</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+        <tbody>
+        {% for c in courses %}
+          <tr>
+            <td class="fw-semibold">{{ c.course_code }}</td>
+            <td>{{ c.name }}{% if c.description %}<div class="small text-body-secondary">{{ c.description }}</div>{% endif %}</td>
+            <td>{{ c.examinations|length }}</td>
+            <td>{{ badge(c.status) }}</td>
+            <td class="text-end text-nowrap">
+              <a class="btn btn-sm btn-outline-primary" href="{{ url_for('admin.course_edit', course_id=c.id) }}">Edit</a>
+              {{ post_button(url_for('admin.course_toggle', course_id=c.id), 'Deactivate' if c.status == 'active' else 'Activate') }}
+              {% if not c.examinations %}{{ post_button(url_for('admin.course_delete', course_id=c.id), 'Delete', 'btn-outline-danger btn-sm') }}{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody></table></div>
+    {% else %}{{ empty('No courses found.') }}{% endif %}
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card"><div class="card-header">Add a course</div><div class="card-body">
+      <form method="post">
+        {{ csrf() }}
+        <div class="mb-3"><label class="form-label" for="course_code">Course code</label>
+          <input class="form-control text-uppercase" id="course_code" name="course_code" required maxlength="20" pattern="[A-Za-z0-9\-]{2,20}" placeholder="CS301"></div>
+        <div class="mb-3"><label class="form-label" for="name">Name</label>
+          <input class="form-control" id="name" name="name" required maxlength="150"></div>
+        <div class="mb-3"><label class="form-label" for="description">Description</label>
+          <textarea class="form-control" id="description" name="description" rows="3"></textarea></div>
+        <button class="btn btn-primary w-100">Create course</button>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}

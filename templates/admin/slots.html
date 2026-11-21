@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}Slots{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>All slots</h1><div class="sub">Slots created by examiners across every examination.</div></div></div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-6"><select class="form-select" name="exam_id" aria-label="Examination">
+    <option value="">All examinations</option>
+    {% for e in exams %}<option value="{{ e.id }}" {{ 'selected' if e.id == exam_id }}>{{ e.course.course_code }} · {{ e.name }}</option>{% endfor %}
+  </select></div>
+  <div class="col-md-3"><select class="form-select" name="status" aria-label="Status">
+    <option value="">Any status</option>
+    {% for s in ['open','full','closed','cancelled'] %}<option value="{{ s }}" {{ 'selected' if s == status }}>{{ s|capitalize }}</option>{% endfor %}
+  </select></div>
+  <div class="col-md-3"><button class="btn btn-outline-secondary w-100">Filter</button></div>
+</form>
+<div class="card">
+{% if slots %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>#</th><th>When</th><th>Examination</th><th>Examiner</th><th>Venue</th><th>Booked</th><th>Status</th></tr></thead>
+    <tbody>{% for s in slots %}
+      <tr class="{{ 'text-body-secondary' if s.end_dt < now }}">
+        <td><a href="{{ url_for('admin.slot_detail', slot_id=s.id) }}">{{ s.id }}</a></td>
+        <td class="text-nowrap">{{ s.label() }}{% if s.end_dt < now %} <span class="small">(past)</span>{% endif %}</td>
+        <td>{{ s.examination.name }}</td><td>{{ s.examiner.name }}</td><td>{{ s.venue or '—' }}</td>
+        <td>{{ s.booked_count }}/{{ s.capacity }}</td><td>{{ badge(s.status) }}</td>
+      </tr>
+    {% endfor %}</tbody></table></div>
+{% else %}{{ empty('No slots match.') }}{% endif %}
+</div>
+{% endblock %}
