@@ -11,7 +11,7 @@ import click
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
 
@@ -64,6 +64,16 @@ def create_app(config_object=Config):
 
     with app.app_context():
         init_database(app)
+
+    @app.route("/health")
+    def health():
+        """Liveness + database check for the hosting platform. Reveals nothing sensitive."""
+        try:
+            db.session.execute(text("SELECT 1"))
+        except Exception:  # any failure means "not healthy"; details go to the log only
+            app.logger.exception("Health check failed")
+            return jsonify(status="error"), 503
+        return jsonify(status="ok"), 200
 
     @app.route("/")
     def index():
