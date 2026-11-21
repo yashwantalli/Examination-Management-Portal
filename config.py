@@ -72,7 +72,12 @@ class Config:
     # Cookies: only sent over HTTPS in production, never readable by JavaScript.
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = IS_PRODUCTION
+    # EMP_COOKIE_SECURE=0 is for running the production stack over plain http://localhost.
+    SESSION_COOKIE_SECURE = os.environ.get("EMP_COOKIE_SECURE", "1" if IS_PRODUCTION else "0") == "1"
+
+    # Set EMP_TRUST_PROXY=1 behind a reverse proxy (Render, Railway, nginx) so the app sees
+    # the real client IP and https scheme from X-Forwarded-* headers. Never set it without one.
+    TRUST_PROXY = os.environ.get("EMP_TRUST_PROXY", "0") == "1"
 
 
 class TestConfig(Config):

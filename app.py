@@ -11,6 +11,7 @@ import click
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 from flask_login import LoginManager, current_user
 from flask_migrate import Migrate
+from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy import inspect, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.exc import IntegrityError
@@ -57,7 +58,11 @@ def create_app(config_object=Config):
     for bp in (auth_bp, admin_bp, examiner_bp, student_bp, api_bp):
         app.register_blueprint(bp)
 
+    if app.config.get("TRUST_PROXY"):
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     _register_csrf(app)
+    _register_security_headers(app)
     _register_template_helpers(app)
     _register_errors(app)
     _register_cli(app)
@@ -141,6 +146,34 @@ def _register_csrf(app):
         token = request.form.get("_csrf")
         if not token or token != session.get("_csrf"):
             abort(400, description="Your form expired. Please go back, refresh and try again.")
+
+
+# --------------------------------------------------------------------------- security headers
+CONTENT_SECURITY_POLICY = "; ".join([
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",   # a few templates use style="..." attributes
+    "img-src 'self' data:",               # Bootstrap embeds small SVG icons as data: URIs
+    "font-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+
+
+def _register_security_headers(app):
+    @app.after_request
+    def _headers(response):
+        h = response.headers
+        h.setdefault("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        h.setdefault("X-Content-Type-Options", "nosniff")
+        h.setdefault("X-Frame-Options", "DENY")
+        h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        h.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        if request.is_secure:  # HSTS is only meaningful (and only honoured) over https
+            h.setdefault("Strict-Transport-Security", "max-age=31536000")
+        return response
 
 
 # --------------------------------------------------------------------------- templates
