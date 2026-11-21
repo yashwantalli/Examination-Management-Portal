@@ -1,0 +1,505 @@
+openapi: 3.0.3
+info:
+  title: Examination Management Portal (EMP) API
+  version: 1.0.0
+  description: |
+    JSON API resources for examinations, examiners, students and bookings.
+    It is implemented in `routes/api.py` and shares its business rules with the web UI
+    (`services.py`), so booking windows, capacity, duplicate-booking and cancellation rules
+    are enforced identically.
+
+    **Authentication.** Session cookie (Flask-Login). Call `POST /api/v1/auth/login` first and
+    send the returned `session` cookie with every request.
+    Example: `curl -c jar -H "Content-Type: application/json" -d '{"email":"aarav@student.emp.local","password":"Demo@1234"}' http://127.0.0.1:5000/api/v1/auth/login`
+
+    **Write requests** (POST, PATCH) must use `Content-Type: application/json`, otherwise 415 is returned.
+    Unapproved examiners receive 403 on every examiner-accessible resource.
+servers:
+  - url: http://127.0.0.1:5000/api/v1
+    description: Local development server
+
+tags:
+  - name: Auth
+  - name: Examinations
+  - name: Examiners
+  - name: Students
+  - name: Bookings
+  - name: Statistics
+
+security:
+  - sessionCookie: []
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and start a session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: {type: string, format: email, example: aarav@student.emp.local}
+                password: {type: string, format: password, example: Demo@1234}
+      responses:
+        "200":
+          description: Logged in. A `session` cookie is set.
+          headers:
+            Set-Cookie:
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: {type: string, example: Logged in.}
+                  user: {$ref: "#/components/schemas/User"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: End the current session
+      description: Any role. Send an empty JSON body (`{}`).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {type: object}
+      responses:
+        "200":
+          description: Logged out.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Message"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+
+  /me:
+    get:
+      tags: [Auth]
+      summary: Current user profile
+      description: Any role (including examiners awaiting approval).
+      responses:
+        "200":
+          description: The logged-in user.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/User"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+
+  /examinations:
+    get:
+      tags: [Examinations]
+      summary: List examinations
+      description: |
+        Roles: admin, approved examiner, student. Students and examiners only see active examinations
+        of active courses; the admin sees all and may filter by `status`.
+      parameters:
+        - {name: q, in: query, description: Search by examination name or course code, schema: {type: string}}
+        - {name: course_id, in: query, schema: {type: integer}}
+        - {name: status, in: query, description: Admin only, schema: {type: string, enum: [draft, active, inactive, completed]}}
+        - {name: open, in: query, description: "`true` = only examinations whose booking window is open now", schema: {type: string, enum: ["true"]}}
+      responses:
+        "200":
+          description: Examinations.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Examination"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+
+  /examinations/{exam_id}:
+    get:
+      tags: [Examinations]
+      summary: Examination details with rubric and assigned examiners
+      description: "Roles: admin, approved examiner, student."
+      parameters:
+        - $ref: "#/components/parameters/ExamId"
+      responses:
+        "200":
+          description: Examination with rubric.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/ExaminationDetail"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+
+  /examinations/{exam_id}/slots:
+    get:
+      tags: [Examinations]
+      summary: Slots of an examination
+      description: "Roles: admin, approved examiner, student."
+      parameters:
+        - $ref: "#/components/parameters/ExamId"
+        - {name: available, in: query, description: "`true` = only open slots with free seats", schema: {type: string, enum: ["true"]}}
+      responses:
+        "200":
+          description: Slots ordered by start time.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Slot"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+
+  /examiners:
+    get:
+      tags: [Examiners]
+      summary: List examiners (admin)
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [pending, approved, rejected, deactivated]}}
+      responses:
+        "200":
+          description: Examiners.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/User"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+
+  /examiners/{user_id}:
+    patch:
+      tags: [Examiners]
+      summary: Approve, reject or deactivate an examiner (admin)
+      description: The examiner is notified by e-mail.
+      parameters:
+        - {name: user_id, in: path, required: true, schema: {type: integer}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [approval_status]
+              properties:
+                approval_status: {type: string, enum: [pending, approved, rejected, deactivated]}
+      responses:
+        "200":
+          description: Updated examiner.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/User"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+
+  /students:
+    get:
+      tags: [Students]
+      summary: List or search students (admin)
+      parameters:
+        - {name: q, in: query, description: "Name, email or student number", schema: {type: string}}
+      responses:
+        "200":
+          description: Students.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/User"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+
+  /bookings:
+    get:
+      tags: [Bookings]
+      summary: List bookings visible to the caller
+      description: |
+        Admin: all bookings. Student: own bookings. Approved examiner: bookings in the examiner's own slots.
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [booked, completed, cancelled]}}
+        - {name: examination_id, in: query, schema: {type: integer}}
+      responses:
+        "200":
+          description: Bookings, newest first.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: "#/components/schemas/Booking"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+    post:
+      tags: [Bookings]
+      summary: Book a slot (student)
+      description: |
+        Enforced rules: examination and course active; admin booking switch on; current time inside the
+        booking window; slot in the future, open and not full (atomic seat decrement); no other active
+        booking for the same examination; no time clash with the student's other bookings.
+        A confirmation e-mail is generated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [slot_id]
+              properties:
+                slot_id: {type: integer, example: 3}
+      responses:
+        "201":
+          description: Booking created.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Booking"}
+        "400": {$ref: "#/components/responses/BadRequest"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "409": {$ref: "#/components/responses/Conflict"}
+        "415": {$ref: "#/components/responses/UnsupportedMediaType"}
+
+  /bookings/{booking_id}:
+    get:
+      tags: [Bookings]
+      summary: One booking visible to the caller
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+      responses:
+        "200":
+          description: Booking.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Booking"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+    delete:
+      tags: [Bookings]
+      summary: Cancel a booking (student — own booking before the deadline; or admin)
+      description: The booking is kept with status `cancelled` (history is preserved) and the seat is released.
+      parameters:
+        - $ref: "#/components/parameters/BookingId"
+        - {name: reason, in: query, schema: {type: string}}
+      responses:
+        "200":
+          description: Cancelled booking.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Booking"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409": {$ref: "#/components/responses/Conflict"}
+
+  /stats:
+    get:
+      tags: [Statistics]
+      summary: Dashboard statistics (admin)
+      responses:
+        "200":
+          description: Counts, booking trend, examiner workload and examination completion.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/Stats"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+
+  parameters:
+    ExamId:
+      name: exam_id
+      in: path
+      required: true
+      schema: {type: integer}
+    BookingId:
+      name: booking_id
+      in: path
+      required: true
+      schema: {type: integer}
+
+  responses:
+    BadRequest:
+      description: Invalid input.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Unauthorized:
+      description: Not logged in, or wrong credentials.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Forbidden:
+      description: Role not allowed, account deactivated, or examiner not yet approved.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    NotFound:
+      description: Resource not found or not visible to the caller.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+    Conflict:
+      description: A business rule blocked the action (window closed, slot full, duplicate booking, deadline passed…).
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+          example: {error: You already have a booking for this examination. Cancel it first if you want a different slot.}
+    UnsupportedMediaType:
+      description: Request body was not JSON.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Error"}
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: {type: string}
+    Message:
+      type: object
+      properties:
+        message: {type: string}
+    User:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        email: {type: string, format: email}
+        role: {type: string, enum: [admin, examiner, student]}
+        is_active: {type: boolean}
+        department: {type: string, description: Examiners only}
+        approval_status: {type: string, enum: [pending, approved, rejected, deactivated], description: Examiners only}
+        student_number: {type: string, description: Students only}
+        program: {type: string, nullable: true, description: Students only}
+    Window:
+      type: object
+      properties:
+        start: {type: string, format: date-time}
+        end: {type: string, format: date-time}
+        open: {type: boolean, description: Admin-controlled switch}
+    Examination:
+      type: object
+      properties:
+        id: {type: integer}
+        name: {type: string}
+        type: {type: string, example: Viva}
+        course:
+          type: object
+          properties:
+            id: {type: integer}
+            code: {type: string}
+            name: {type: string}
+        duration_minutes: {type: integer}
+        maximum_marks: {type: integer}
+        passing_marks: {type: integer}
+        status: {type: string, enum: [draft, active, inactive, completed]}
+        slot_creation_window: {$ref: "#/components/schemas/Window"}
+        booking_window: {$ref: "#/components/schemas/Window"}
+        cancellation_hours: {type: integer}
+        booking_allowed_now: {type: boolean}
+    ExaminationDetail:
+      allOf:
+        - $ref: "#/components/schemas/Examination"
+        - type: object
+          properties:
+            rubric:
+              type: array
+              items: {$ref: "#/components/schemas/RubricCriterion"}
+            examiners:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: {type: integer}
+                  name: {type: string}
+    RubricCriterion:
+      type: object
+      properties:
+        id: {type: integer}
+        criterion: {type: string}
+        maximum_marks: {type: integer}
+        weightage: {type: integer}
+        description: {type: string, nullable: true}
+    Slot:
+      type: object
+      properties:
+        id: {type: integer}
+        examination_id: {type: integer}
+        examiner:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: string}
+        date: {type: string, format: date}
+        start_time: {type: string, example: "10:00"}
+        end_time: {type: string, example: "10:45"}
+        venue: {type: string, nullable: true}
+        capacity: {type: integer}
+        available_seats: {type: integer}
+        status: {type: string, enum: [open, full, closed, cancelled]}
+    Booking:
+      type: object
+      properties:
+        id: {type: integer}
+        status: {type: string, enum: [booked, completed, cancelled]}
+        booked_at: {type: string, format: date-time}
+        cancelled_at: {type: string, format: date-time, nullable: true}
+        student:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: string}
+        examination:
+          type: object
+          properties:
+            id: {type: integer}
+            name: {type: string}
+        slot: {$ref: "#/components/schemas/Slot"}
+        reschedule_count: {type: integer}
+        result_published: {type: boolean}
+    Stats:
+      type: object
+      properties:
+        counts:
+          type: object
+          properties:
+            courses: {type: integer}
+            examinations: {type: integer}
+            examiners: {type: integer}
+            students: {type: integer}
+            slots: {type: integer}
+            bookings: {type: integer}
+        pending_examiners: {type: integer}
+        booking_trend:
+          type: array
+          items:
+            type: object
+            properties:
+              day: {type: string}
+              bookings: {type: integer}
+        examiner_workload:
+          type: array
+          items:
+            type: object
+            properties:
+              examiner: {type: string}
+              bookings: {type: integer}
+        examination_completion:
+          type: array
+          items:
+            type: object
+            properties:
+              examination: {type: string}
+              evaluated: {type: integer}
+              booked: {type: integer}
