@@ -1,128 +1,73 @@
 # Examination Management Portal (EMP)
 
-A role-based **Examination Management Portal** built from scratch using **Python, Flask, Flask-SQLAlchemy, Flask-Login, SQLite, and Bootstrap 5**. The portal manages end-to-end viva and practical examination workflows across three distinct user roles—**Admin**, **Examiner**, and **Student**—with strict server-side validation for booking windows, slot capacities, duplicate-booking prevention, and rubric-based evaluations.
+[![CI](https://github.com/yashwantalli/empp/actions/workflows/ci.yml/badge.svg)](https://github.com/yashwantalli/empp/actions/workflows/ci.yml)
 
----
+A role-based portal for scheduling and evaluating viva/practical examinations, built with
+**Flask, SQLAlchemy, Flask-Login and Bootstrap 5**. Admins set up courses, exams and rubrics;
+examiners publish slots and score students; students book slots and see published results.
 
-## Table of Contents
-1. [Key Features & Roles](#key-features--roles)
-2. [Business Rules & Server-Side Validation](#business-rules--server-side-validation)
-3. [Project Structure](#project-structure)
-4. [Setup & Installation](#setup--installation)
-5. [Default Credentials](#default-credentials)
-6. [Running Automated Tests](#running-automated-tests)
+## Features
 
----
+- **Admin:** approve examiners, manage courses/exams/weighted rubrics, set booking windows,
+  reschedule bookings, reassign examiners, publish results.
+- **Examiner:** create slots, view booked students, score each rubric criterion, track pending evaluations.
+- **Student:** search exams, book/cancel slots, view history, download published scorecards as PDF.
+- **Audit trail and API:** every booking action is logged (`BookingEvent`); a session-authenticated
+  JSON API lives under `/api/v1` (spec in `api.yaml`).
 
-## Key Features & Roles
+## Design decisions worth knowing
 
-### 1. Admin
-- **Examiner Approval:** Review self-registered Examiner accounts and approve access before they can log in.
-- **Course & Exam Management:** Create courses and schedule exams with configured booking start and end windows.
-- **Rubric Definition:** Add custom evaluation criteria with maximum marks per exam.
-- **Examiner Assignment & Overrides:** Assign or reassign examiners to exams and reschedule active student bookings to alternative available slots.
+| Concern | Approach |
+|---|---|
+| Overbooking | Seat taken with one atomic `UPDATE ... WHERE available_seats > 0`; if 0 rows change, someone else got it |
+| Duplicate bookings | Partial unique index (`uq_active_booking_per_exam`) enforced by the database, not just app code |
+| Business rules | Live in `services.py`, shared by HTML routes and the API |
+| Config and secrets | Environment variables only. The app **refuses to start** in production with the dev secret, the default admin password or SQLite |
+| Time | Booking windows use the wall clock of `EMP_TIMEZONE` (default `Asia/Kolkata`), so a UTC server behaves the same as a laptop |
 
-### 2. Examiner
-- **Assigned Exams:** View exams assigned by the Admin along with configured booking windows.
-- **Slot Publishing:** Create examination time slots with defined start/end times and student capacities.
-- **Rubric-Based Evaluation:** View students booked into their own slots, score each rubric criterion within valid limits, and submit feedback/remarks.
-
-### 3. Student
-- **Exam Discovery:** Search available examinations by title and inspect published slots and real-time seat availability.
-- **Slot Booking & Cancellation:** Book available slots within configured windows or cancel active bookings before the deadline (automatically reopening slot capacity).
-- **Results & History:** Track booking statuses (`booked`, `cancelled`, `evaluated`) and view finalized rubric marks and examiner feedback.
-
----
-
-## Business Rules & Server-Side Validation
-- **Role-Based Access Control:** Custom route decorators (`@admin_required`, `@examiner_required`, `@student_required`) enforce strict endpoint isolation.
-- **Booking Window Enforcement:** Students can only book or cancel slots inside the exam's active `booking_start` and `booking_end` window.
-- **Capacity & Full-Slot Automation:** Slots automatically lock (`is_full = True`) once active bookings reach capacity, preventing overbooking.
-- **Duplicate Booking Prevention:** A student cannot hold more than one active (`booked` or `evaluated`) booking for the same examination.
-- **Evaluation Ownership:** Examiners can only evaluate active bookings belonging to their own slots.
-
----
-
-## Project Structure
-
-```text
-empp/
-├── app.py                  # Flask application factory, LoginManager & default Admin seeding
-├── config.py               # App configuration and SQLite database URI
-├── models.py               # SQLAlchemy database models (User, Course, Exam, RubricCriterion, Slot, Booking, Evaluation)
-├── requirements.txt        # Python dependencies
-├── README.md               # Project documentation
-├── .gitignore              # Git ignore rules (venv, __pycache__, *.db)
-├── routes/
-│   ├── __init__.py
-│   ├── auth.py             # Registration, login, and logout routes
-│   ├── admin.py            # Admin dashboard, approvals, courses/exams/rubrics, and overrides
-│   ├── examiner.py         # Examiner dashboard, slot creation, and rubric evaluation
-│   └── student.py          # Student dashboard, exam search, slot booking/cancellation, and results
-├── templates/
-│   ├── base.html           # Shared Bootstrap 5 layout and navigation bar
-│   ├── auth/
-│   │   ├── login.html
-│   │   └── register.html
-│   ├── admin/
-│   │   └── dashboard.html
-│   ├── examiner/
-│   │   └── dashboard.html
-│   └── student/
-│       └── dashboard.html
-└── tests/
-    └── test_app.py         # Automated unit tests for capacity and duplicate booking enforcement
-```
-
----
-
-## Setup & Installation
-
-1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/yashwantalli/empp.git](https://github.com/yashwantalli/empp.git)
-   cd empp
-   ```
-
-2. **Create and activate a virtual environment:**
-   - **Windows (PowerShell):**
-     ```powershell
-     python -m venv venv
-     venv\Scripts\activate
-     ```
-   - **macOS / Linux:**
-     ```bash
-     python3 -m venv venv
-     source venv/bin/activate
-     ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Run the application:**
-   ```bash
-   python app.py
-   ```
-   Open `http://127.0.0.1:5000/` in your browser. The SQLite database (`instance/emp.db`) and default Admin account are created automatically on first launch.
-
----
-
-## Default Credentials
-
-| Role | Username | Password | Notes |
-| :--- | :--- | :--- | :--- |
-| **Admin** | `admin` | `admin123` | Auto-seeded on startup |
-| **Examiner** | *(Self-register)* | *(User-defined)* | Requires Admin approval before login |
-| **Student** | *(Self-register)* | *(User-defined)* | Approved immediately upon registration |
-
----
-
-## Running Automated Tests
-
-Run the server-side unit test suite (verifying capacity enforcement and duplicate-booking prevention) using:
+## Run locally
 
 ```bash
-python -m unittest discover tests
+git clone https://github.com/yashwantalli/empp.git
+cd empp
+python3 -m venv venv && source venv/bin/activate     # Windows: venv\Scripts\activate
+pip install -r requirements-dev.txt
+cp .env.example .env                                   # optional; defaults work for development
+flask --app app seed-demo --reset                      # demo data (development only)
+python app.py                                          # http://127.0.0.1:5000
 ```
+
+Demo accounts (created by `seed-demo`, development only):
+
+| Role | Email | Password |
+|---|---|---|
+| Admin | `admin@emp.local` | `Admin@123` |
+| Examiner | `kavya.rao@emp.local` | `Demo@1234` |
+| Student | `aarav@student.emp.local` | `Demo@1234` |
+
+## Configuration
+
+| Variable | Purpose | Required in production |
+|---|---|---|
+| `EMP_ENV` | `development` or `production` | yes (`production`) |
+| `EMP_SECRET_KEY` | Session signing key, 32+ random chars | yes |
+| `DATABASE_URL` | e.g. `postgresql://user:pass@host/db` | yes |
+| `EMP_ADMIN_EMAIL`, `EMP_ADMIN_PASSWORD`, `EMP_ADMIN_NAME` | Admin seeded on first start | password must not be the default |
+| `EMP_TIMEZONE` | Timezone for booking windows | no |
+| `EMP_MAIL_*` | Optional SMTP; without it, mails go to the in-app outbox | no |
+
+## Tests
+
+```bash
+python -m pytest -q
+```
+
+CI runs the suite on Python 3.11 and 3.12 for every push and pull request.
+
+## Roadmap
+
+- [x] Environment-based config, production fail-fast, CI
+- [ ] PostgreSQL + Flask-Migrate migrations
+- [ ] gunicorn, Dockerfile, docker-compose, `/health` endpoint
+- [ ] Login rate limiting, security headers, structured logging
+- [ ] Deployed instance with auto-deploy from `main`
