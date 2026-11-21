@@ -1,4 +1,7 @@
-Flask
-Flask-SQLAlchemy
-Flask-Login
-Werkzeug
+Flask>=3.0,<4
+Flask-SQLAlchemy>=3.1,<4
+Flask-Login>=0.6.3,<0.7
+SQLAlchemy>=2.0,<3
+Werkzeug>=3.0,<4
+reportlab>=4.0,<6
+tzdata
