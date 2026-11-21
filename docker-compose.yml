@@ -1,0 +1,39 @@
+# Runs the production stack locally: the app (gunicorn) plus PostgreSQL.
+#   1. copy .env.example to .env and fill in the three required values
+#   2. docker compose up --build
+#   3. open http://localhost:8000
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: emp
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: emp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U emp -d emp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      EMP_ENV: production
+      EMP_SECRET_KEY: ${EMP_SECRET_KEY:?Set EMP_SECRET_KEY in .env (32+ random characters)}
+      EMP_ADMIN_EMAIL: ${EMP_ADMIN_EMAIL:-admin@emp.local}
+      EMP_ADMIN_PASSWORD: ${EMP_ADMIN_PASSWORD:?Set EMP_ADMIN_PASSWORD in .env}
+      DATABASE_URL: postgresql://emp:${POSTGRES_PASSWORD}@db:5432/emp
+      EMP_COOKIE_SECURE: "0"   # plain http://localhost; leave at 1 (default) behind https
+      EMP_TIMEZONE: ${EMP_TIMEZONE:-Asia/Kolkata}
+
+volumes:
+  pgdata:
