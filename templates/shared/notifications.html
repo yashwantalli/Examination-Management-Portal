@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}{{ 'E-mail outbox' if show_recipient else 'Notifications' }}{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <h1>{{ 'E-mail outbox' if show_recipient else 'Notifications' }}</h1>
+  <div class="sub">{% if show_recipient %}Every e-mail the portal generates (booking confirmations, result publication, approvals). Status “logged” means SMTP is not configured, so the message was stored here instead of being sent.{% else %}E-mails sent to {{ current_user.email }}.{% endif %}</div>
+</div></div>
+{% for n in items %}
+<div class="card mb-2"><div class="card-body py-3">
+  <div class="d-flex justify-content-between flex-wrap gap-2">
+    <div class="fw-semibold">{{ n.subject }}</div>
+    <div class="small text-body-secondary">{{ n.created_at|dt }} · {{ badge(n.status) }}</div>
+  </div>
+  {% if show_recipient %}<div class="small text-body-secondary mb-2">To {{ n.user.name }} &lt;{{ n.recipient_email }}&gt; · {{ n.category|replace('_',' ') }}</div>{% endif %}
+  <details class="mt-1"><summary class="small">Show message</summary><pre class="mail mt-2">{{ n.body }}</pre></details>
+</div></div>
+{% else %}
+<div class="card">{{ empty('No notifications yet.') }}</div>
+{% endfor %}
+{% endblock %}

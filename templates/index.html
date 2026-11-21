@@ -1,40 +1,33 @@
 {% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
 {% block content %}
-<div class="hero-section text-center mb-5 shadow">
-    <h1 class="display-5 fw-bold mb-3">Examination Management Portal</h1>
-    <p class="lead text-light opacity-75 mb-4">
-        Streamlined slot scheduling, automated capacity control, and rubric-based evaluation for Students, Examiners, and Administrators.
-    </p>
-    <div class="d-flex justify-content-center gap-3">
-        <a href="{{ url_for('auth.login') }}" class="btn btn-primary btn-lg px-4">Sign In</a>
-        <a href="{{ url_for('auth.register') }}" class="btn btn-outline-light btn-lg px-4">Create Account</a>
+<section class="hero p-4 p-md-5 mb-4">
+  <div class="row align-items-center g-4">
+    <div class="col-lg-7">
+      <h1 class="display-6 fw-semibold mb-3">Examinations, scheduled without the spreadsheet.</h1>
+      <p class="lead mb-4">One place for administrators, examiners and students to manage courses, exam timelines,
+        slot bookings, rubric-based evaluation and published results.</p>
+      <a href="{{ url_for('auth.login') }}" class="btn btn-light btn-lg me-2">Log in</a>
+      <a href="{{ url_for('auth.register') }}" class="btn btn-outline-light btn-lg">Create an account</a>
     </div>
-</div>
-
-<div class="row g-4">
-    <div class="col-md-4">
-        <div class="card h-100 p-3">
-            <div class="card-body">
-                <h5 class="card-title text-primary">Students</h5>
-                <p class="card-text text-muted small">Browse active examinations, book available slots within deadlines, manage cancellations, and inspect rubric scores & feedback.</p>
-            </div>
-        </div>
+    <div class="col-lg-5">
+      <ul class="list-unstyled mb-0 small">
+        <li class="mb-2">✓ Booking windows and capacity enforced automatically</li>
+        <li class="mb-2">✓ One active booking per student per examination</li>
+        <li class="mb-2">✓ Rubric-based marks, published when the admin is ready</li>
+        <li>✓ Full booking history for every reschedule and cancellation</li>
+      </ul>
     </div>
-    <div class="col-md-4">
-        <div class="card h-100 p-3">
-            <div class="card-body">
-                <h5 class="card-title text-success">Examiners</h5>
-                <p class="card-text text-muted small">Publish timed examination slots with seat limits, monitor booked candidates, and submit structured rubric evaluations.</p>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card h-100 p-3">
-            <div class="card-body">
-                <h5 class="card-title text-dark">Administrators</h5>
-                <p class="card-text text-muted small">Approve examiner registrations, configure courses, exam windows, and grading rubrics, and handle administrative overrides.</p>
-            </div>
-        </div>
-    </div>
+  </div>
+</section>
+<div class="row g-3">
+  {% for title, text in [
+    ('Admin', 'Manage courses, examinations, rubrics and timelines; approve examiners; reschedule bookings; publish results.'),
+    ('Examiner', 'Register, get approved, create slots inside the allowed window and evaluate your students against the rubric.'),
+    ('Student', 'Find examinations, book a slot during the booking window, cancel before the deadline and download your scorecard.')] %}
+  <div class="col-md-4"><div class="card h-100"><div class="card-body">
+    <h2 class="h6 fw-semibold">{{ title }}</h2><p class="text-body-secondary small mb-0">{{ text }}</p>
+  </div></div></div>
+  {% endfor %}
 </div>
 {% endblock %}

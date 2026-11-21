@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, post_button, empty %}
+{% block title %}Examiners{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Examiners</h1><div class="sub">Approve new registrations. Unapproved examiners cannot use any examiner feature.</div></div></div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-6"><input class="form-control" name="q" value="{{ q }}" placeholder="Search name, email or ID"></div>
+  <div class="col-md-3"><select class="form-select" name="status">
+    <option value="">All approval states</option>
+    {% for s in ['pending','approved','rejected','deactivated'] %}<option value="{{ s }}" {{ 'selected' if s == status }}>{{ s|capitalize }}</option>{% endfor %}
+  </select></div>
+  <div class="col-md-3"><button class="btn btn-outline-secondary w-100">Filter</button></div>
+</form>
+<div class="card">
+{% if users %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>ID</th><th>Name</th><th>Department</th><th>Registered</th><th>Approval</th><th>Login</th><th class="text-end">Actions</th></tr></thead>
+    <tbody>{% for u in users %}{% set st = u.examiner_profile.approval_status %}
+      <tr>
+        <td class="text-body-secondary">{{ u.id }}</td>
+        <td><a href="{{ url_for('admin.user_detail', user_id=u.id) }}" class="fw-semibold">{{ u.name }}</a><div class="small text-body-secondary">{{ u.email }}</div></td>
+        <td>{{ u.examiner_profile.department }}</td>
+        <td class="small">{{ u.created_at|dt('%d %b %Y') }}</td>
+        <td>{{ badge(st) }}</td>
+        <td>{{ badge('active' if u.is_active else 'deactivated') }}</td>
+        <td class="text-end text-nowrap">
+          {% if st != 'approved' %}{{ post_button(url_for('admin.examiner_status', user_id=u.id), 'Approve', 'btn-success btn-sm', {'status':'approved'}) }}{% endif %}
+          {% if st == 'pending' %}{{ post_button(url_for('admin.examiner_status', user_id=u.id), 'Reject', 'btn-outline-danger btn-sm', {'status':'rejected'}) }}{% endif %}
+          {% if st == 'approved' %}{{ post_button(url_for('admin.examiner_status', user_id=u.id), 'Deactivate', 'btn-outline-danger btn-sm', {'status':'deactivated'}) }}{% endif %}
+        </td>
+      </tr>
+    {% endfor %}</tbody></table></div>
+{% else %}{{ empty('No examiners found.') }}{% endif %}
+</div>
+{% endblock %}

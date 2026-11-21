@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}My results{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>My results</h1><div class="sub">Examination history with published marks and feedback.</div></div></div>
+<div class="card">
+{% if rows %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>Examination</th><th>Date</th><th>Marks</th><th>%</th><th>Result</th><th class="text-end"></th></tr></thead>
+    <tbody>{% for b in rows %}{% set ev = b.evaluation %}
+      <tr><td><a class="fw-semibold" href="{{ url_for('student.result_detail', booking_id=b.id) }}">{{ b.examination.name }}</a><div class="small text-body-secondary">{{ b.examination.course.course_code }}</div></td>
+        <td class="small">{{ b.slot.exam_date.strftime('%d %b %Y') }}</td>
+        <td>{{ ev.total_marks|marks }}/{{ b.examination.maximum_marks }}</td><td>{{ ev.percentage }}%</td>
+        <td><span class="badge rounded-pill {{ 'text-bg-success' if ev.passed else 'text-bg-danger' }}">{{ 'Pass' if ev.passed else 'Not passed' }}</span></td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('student.scorecard', booking_id=b.id) }}">Download scorecard (PDF)</a></td></tr>
+    {% endfor %}</tbody></table></div>
+{% else %}{{ empty('No results have been published for you yet.') }}{% endif %}
+</div>
+{% endblock %}

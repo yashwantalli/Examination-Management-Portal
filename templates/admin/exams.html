@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}Examinations{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Examinations</h1><div class="sub">Timelines, rubrics, examiners and results for every examination.</div></div>
+  <a href="{{ url_for('admin.exam_new') }}" class="btn btn-primary btn-sm">New examination</a>
+</div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-6"><input class="form-control" name="q" value="{{ q }}" placeholder="Search by name or course"></div>
+  <div class="col-md-3"><select class="form-select" name="status">
+    <option value="">All statuses</option>
+    {% for s in ['active','draft','inactive','completed'] %}<option value="{{ s }}" {{ 'selected' if s == status }}>{{ s|capitalize }}</option>{% endfor %}
+  </select></div>
+  <div class="col-md-3"><button class="btn btn-outline-secondary w-100">Filter</button></div>
+</form>
+<div class="card">
+{% if exams %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>#</th><th>Examination</th><th>Course</th><th>Type</th><th>Booking window</th><th>Rubric</th><th>Slots</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for e in exams %}
+      <tr>
+        <td class="text-body-secondary">{{ e.id }}</td>
+        <td><a class="fw-semibold" href="{{ url_for('admin.exam_detail', exam_id=e.id) }}">{{ e.name }}</a></td>
+        <td>{{ e.course.course_code }}</td>
+        <td>{{ e.exam_type }}</td>
+        <td class="small text-nowrap">{{ e.booking_start|dt('%d %b %H:%M') }} → {{ e.booking_end|dt('%d %b %H:%M') }}
+          {% if e.booking_allowed(now) %}<span class="badge text-bg-success ms-1">open now</span>{% endif %}</td>
+        <td>{{ e.rubric_total }}/{{ e.maximum_marks }}</td>
+        <td>{{ e.slots|length }}</td>
+        <td>{{ badge(e.status) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody></table></div>
+{% else %}{{ empty('No examinations match your filters.') }}{% endif %}
+</div>
+{% endblock %}

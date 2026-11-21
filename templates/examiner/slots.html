@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}My slots{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>My slots</h1><div class="sub">Slots can be created, edited or removed only while the examination's slot-creation window is open.</div></div>
+  <a href="{{ url_for('examiner.slot_new') }}" class="btn btn-primary btn-sm">Create a slot</a>
+</div>
+<div class="card">
+{% if slots %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>#</th><th>When</th><th>Examination</th><th>Venue</th><th>Booked</th><th>Status</th><th></th></tr></thead>
+    <tbody>{% for s in slots %}
+      <tr class="{{ 'text-body-secondary' if s.end_dt < now }}">
+        <td>{{ s.id }}</td><td class="text-nowrap">{{ s.label() }}</td><td>{{ s.examination.name }}</td><td>{{ s.venue or '—' }}</td>
+        <td>{{ s.booked_count }}/{{ s.capacity }}</td><td>{{ badge(s.status) }}</td>
+        <td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{{ url_for('examiner.slot_detail', slot_id=s.id) }}">Open</a></td>
+      </tr>
+    {% endfor %}</tbody></table></div>
+{% else %}{{ empty('You have not created any slots yet.') }}{% endif %}
+</div>
+{% endblock %}

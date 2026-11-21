@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}Booking history{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Booking history</h1><div class="sub">Every booking, cancellation, reschedule, reassignment, evaluation and publication — never deleted.</div></div></div>
+<form class="d-flex gap-2 mb-3" method="get" style="max-width: 420px">
+  <select class="form-select" name="action" aria-label="Action">
+    <option value="">All actions</option>
+    {% for a in ['booked','cancelled','rescheduled','examiner_reassigned','evaluated','published'] %}<option value="{{ a }}" {{ 'selected' if a == action }}>{{ a|replace('_',' ')|capitalize }}</option>{% endfor %}
+  </select>
+  <button class="btn btn-outline-secondary">Filter</button>
+</form>
+<div class="card">
+{% if events %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>When</th><th>Action</th><th>Booking</th><th>Student</th><th>Examination</th><th>By</th><th>Details</th></tr></thead>
+    <tbody>{% for e in events %}
+      <tr><td class="small text-nowrap">{{ e.created_at|dt }}</td><td>{{ badge(e.action) }}</td>
+        <td><a href="{{ url_for('admin.booking_detail', booking_id=e.booking_id) }}">#{{ e.booking_id }}</a></td>
+        <td>{{ e.booking.student.name }}</td><td>{{ e.booking.examination.name }}</td>
+        <td class="small">{{ e.actor.name if e.actor else 'System' }}</td>
+        <td class="small">{% if e.action == 'rescheduled' %}{{ e.from_slot.label() }} → {{ e.to_slot.label() }}{% if e.note %}<br>{% endif %}{% endif %}{{ e.note or '' }}</td></tr>
+    {% endfor %}</tbody></table></div>
+{% else %}{{ empty('No history yet.') }}{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, badge, empty %}
+{% block title %}Slot #{{ slot.id }}{% endblock %}
+{% block content %}
+<div class="page-head"><div>
+  <div class="small text-body-secondary"><a href="{{ url_for('admin.slots') }}">Slots</a> / #{{ slot.id }}</div>
+  <h1>{{ slot.label() }} {{ badge(slot.status) }}</h1>
+  <div class="sub"><a href="{{ url_for('admin.exam_detail', exam_id=slot.examination_id) }}">{{ slot.examination.name }}</a> · {{ slot.venue or 'Venue TBA' }} · {{ slot.booked_count }}/{{ slot.capacity }} booked</div>
+</div></div>
+<div class="row g-3">
+  <div class="col-lg-8"><div class="card">
+    <div class="card-header">Students in this slot</div>
+    {% if slot.bookings %}
+    <div class="table-responsive"><table class="table table-hover">
+      <thead><tr><th>Booking</th><th>Student</th><th>Booked</th><th>Status</th><th>Marks</th></tr></thead>
+      <tbody>{% for b in slot.bookings %}
+        <tr><td><a href="{{ url_for('admin.booking_detail', booking_id=b.id) }}">#{{ b.id }}</a></td>
+          <td>{{ b.student.name }}</td><td class="small">{{ b.booked_at|dt }}</td><td>{{ badge(b.status) }}</td>
+          <td>{{ (b.evaluation.total_marks|marks) if b.evaluation else '—' }}</td></tr>
+      {% endfor %}</tbody></table></div>
+    {% else %}{{ empty('No bookings in this slot.') }}{% endif %}
+  </div></div>
+  <div class="col-lg-4"><div class="card">
+    <div class="card-header">Reassign examiner</div>
+    <div class="card-body">
+      <p class="small">Current examiner: <strong>{{ slot.examiner.name }}</strong></p>
+      <p class="small text-body-secondary">For exceptional cases (illness, conflicts). The new examiner must be assigned to this examination and free at this time. Booked students are notified and the change is logged in each booking's history.</p>
+      {% if candidates %}
+      <form method="post">
+        {{ csrf() }}
+        <label class="form-label small" for="examiner_id">New examiner</label>
+        <select class="form-select mb-2" id="examiner_id" name="examiner_id" required>
+          {% for u in candidates %}<option value="{{ u.id }}">{{ u.name }}</option>{% endfor %}
+        </select>
+        <input class="form-control mb-2" name="note" placeholder="Reason (optional)" maxlength="120">
+        <button class="btn btn-primary w-100">Reassign slot</button>
+      </form>
+      {% else %}<div class="small text-body-secondary">No other examiner is assigned to this examination.</div>{% endif %}
+    </div>
+  </div></div>
+</div>
+{% endblock %}

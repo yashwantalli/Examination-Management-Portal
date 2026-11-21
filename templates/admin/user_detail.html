@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, post_button, empty %}
+{% block title %}{{ user.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><div class="small text-body-secondary"><a href="{{ url_for('admin.students' if user.is_student else 'admin.examiners') }}">{{ 'Students' if user.is_student else 'Examiners' }}</a> / #{{ user.id }}</div>
+    <h1>{{ user.name }}</h1><div class="sub">{{ user.email }} · registered {{ user.created_at|dt('%d %b %Y') }}</div></div>
+  <div>{{ post_button(url_for('admin.user_toggle', user_id=user.id), 'Deactivate login' if user.is_active else 'Activate login') }}</div>
+</div>
+<div class="row g-3">
+  <div class="col-lg-4"><div class="card"><div class="card-body">
+    <dl class="kv mb-0">
+      <dt>Role</dt><dd>{{ user.role|capitalize }}</dd>
+      <dt>Login</dt><dd>{{ badge('active' if user.is_active else 'deactivated') }}</dd>
+      {% if user.student_profile %}
+        <dt>Student ID</dt><dd class="mono">{{ user.student_profile.student_number }}</dd>
+        <dt>Programme</dt><dd>{{ user.student_profile.program or '—' }}</dd>
+        <dt>Contact</dt><dd>{{ user.student_profile.contact_details or '—' }}</dd>
+      {% else %}
+        <dt>Department</dt><dd>{{ user.examiner_profile.department }}</dd>
+        <dt>Approval</dt><dd>{{ badge(user.examiner_profile.approval_status) }}</dd>
+        <dt>Contact</dt><dd>{{ user.examiner_profile.contact_details or '—' }}</dd>
+      {% endif %}
+    </dl>
+  </div></div></div>
+  <div class="col-lg-8"><div class="card">
+    {% if user.is_student %}
+      <div class="card-header">Booking &amp; examination history</div>
+      {% if bookings %}<div class="table-responsive"><table class="table table-hover">
+        <thead><tr><th>Booking</th><th>Examination</th><th>Slot</th><th>Status</th><th>Marks</th></tr></thead>
+        <tbody>{% for b in bookings %}<tr>
+          <td><a href="{{ url_for('admin.booking_detail', booking_id=b.id) }}">#{{ b.id }}</a></td><td>{{ b.examination.name }}</td>
+          <td class="small text-nowrap">{{ b.slot.label() }}</td><td>{{ badge(b.status) }}</td>
+          <td>{{ (b.evaluation.total_marks|marks ~ '/' ~ b.examination.maximum_marks) if b.evaluation else '—' }}</td></tr>{% endfor %}
+        </tbody></table></div>{% else %}{{ empty('No bookings.') }}{% endif %}
+    {% else %}
+      <div class="card-header">Slots</div>
+      {% if slots %}<div class="table-responsive"><table class="table table-hover">
+        <thead><tr><th>#</th><th>Examination</th><th>When</th><th>Booked</th><th>Status</th></tr></thead>
+        <tbody>{% for s in slots %}<tr>
+          <td><a href="{{ url_for('admin.slot_detail', slot_id=s.id) }}">{{ s.id }}</a></td><td>{{ s.examination.name }}</td>
+          <td class="small text-nowrap">{{ s.label() }}</td><td>{{ s.booked_count }}/{{ s.capacity }}</td><td>{{ badge(s.status) }}</td></tr>{% endfor %}
+        </tbody></table></div>{% else %}{{ empty('No slots.') }}{% endif %}
+    {% endif %}
+  </div></div>
+</div>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, empty %}
+{% block title %}Bookings{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>All bookings</h1><div class="sub">Open a booking to reschedule it, cancel it or inspect its history.</div></div></div>
+<form class="row g-2 mb-3" method="get">
+  <div class="col-md-4"><input class="form-control" name="q" value="{{ q }}" placeholder="Student name, email or booking ID"></div>
+  <div class="col-md-4"><select class="form-select" name="exam_id" aria-label="Examination">
+    <option value="">All examinations</option>
+    {% for e in exams %}<option value="{{ e.id }}" {{ 'selected' if e.id == exam_id }}>{{ e.course.course_code }} · {{ e.name }}</option>{% endfor %}
+  </select></div>
+  <div class="col-md-2"><select class="form-select" name="status" aria-label="Status">
+    <option value="">Any status</option>
+    {% for s in ['booked','completed','cancelled'] %}<option value="{{ s }}" {{ 'selected' if s == status }}>{{ s|capitalize }}</option>{% endfor %}
+  </select></div>
+  <div class="col-md-2"><button class="btn btn-outline-secondary w-100">Filter</button></div>
+  {% if student_id %}<input type="hidden" name="student_id" value="{{ student_id }}">{% endif %}
+</form>
+<div class="card">
+{% if bookings %}
+  <div class="table-responsive"><table class="table table-hover">
+    <thead><tr><th>Booking</th><th>Student</th><th>Examination</th><th>Slot</th><th>Examiner</th><th>Booked at</th><th>Status</th></tr></thead>
+    <tbody>{% for b in bookings %}
+      <tr><td><a href="{{ url_for('admin.booking_detail', booking_id=b.id) }}" class="fw-semibold">#{{ b.id }}</a></td>
+        <td>{{ b.student.name }}</td><td>{{ b.examination.name }}</td>
+        <td class="small text-nowrap">{{ b.slot.label() }}</td><td>{{ b.slot.examiner.name }}</td>
+        <td class="small">{{ b.booked_at|dt }}</td><td>{{ badge(b.status) }}{% if b.reschedule_count %} <span class="small text-body-secondary">↻{{ b.reschedule_count }}</span>{% endif %}</td></tr>
+    {% endfor %}</tbody></table></div>
+{% else %}{{ empty('No bookings match.') }}{% endif %}
+</div>
+{% endblock %}

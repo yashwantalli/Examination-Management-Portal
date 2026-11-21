@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Result · {{ booking.examination.name }}{% endblock %}
+{% block content %}
+{% set exam = booking.examination %}
+<div class="page-head">
+  <div><div class="small text-body-secondary"><a href="{{ url_for('student.results') }}">My results</a></div>
+    <h1>{{ exam.name }}</h1><div class="sub">{{ exam.course.course_code }} · evaluated by {{ ev.examiner.name }} · {{ booking.slot.label() }}</div></div>
+  <a class="btn btn-primary btn-sm" href="{{ url_for('student.scorecard', booking_id=booking.id) }}">Download scorecard (PDF)</a>
+</div>
+<div class="row g-3">
+  <div class="col-md-4"><div class="card h-100"><div class="card-body text-center">
+    <div class="stat-value" style="font-size:2.5rem">{{ ev.total_marks|marks }}<span class="fs-5 text-body-secondary">/{{ exam.maximum_marks }}</span></div>
+    <div class="text-body-secondary mb-2">{{ ev.percentage }}%</div>
+    <span class="badge rounded-pill fs-6 {{ 'text-bg-success' if ev.passed else 'text-bg-danger' }}">{{ 'Pass' if ev.passed else 'Not passed' }}</span>
+    <div class="small text-body-secondary mt-2">Passing marks: {{ exam.passing_marks }}</div>
+  </div></div></div>
+  <div class="col-md-8"><div class="card h-100">
+    <div class="card-header">Rubric breakdown</div>
+    <div class="card-body">
+      {% for s in ev.scores %}
+      <div class="mb-3">
+        <div class="d-flex justify-content-between small"><span class="fw-semibold">{{ s.criterion.criterion_name }}</span><span>{{ s.marks_awarded|marks }}/{{ s.criterion.maximum_marks }}</span></div>
+        <div class="progress" style="height:8px"><div class="progress-bar bg-chart" style="width: {{ (s.marks_awarded / s.criterion.maximum_marks * 100)|round(0) }}%"></div></div>
+        {% if s.comment %}<div class="small text-body-secondary mt-1">{{ s.comment }}</div>{% endif %}
+      </div>
+      {% endfor %}
+      {% if ev.remarks %}<div class="border-top pt-3"><div class="small fw-semibold mb-1">Examiner feedback</div><p class="mb-0">{{ ev.remarks }}</p></div>{% endif %}
+    </div>
+  </div></div>
+</div>
+{% endblock %}
